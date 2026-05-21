@@ -1,0 +1,10 @@
+__pycache__/
+.venv/
+.env
+.pytest_cache/
+.coverage
+htmlcov/
+results/
+data/
+*.log
+uv.lock
