@@ -5,9 +5,9 @@ from src.sdk.factory import AIClientFactory
 from src.services.debater import Debater
 from src.services.judge import Judge
 from src.services.orchestrator import DebateOrchestrator
+from src.services.exporter import DebateExporter
 from src.shared.config import ConfigManager
 from src.shared.gatekeeper import ApiGatekeeper
-
 
 async def main():
     parser = argparse.ArgumentParser(description="AI Debate Platform")
@@ -33,7 +33,14 @@ async def main():
 
     # Run debate
     orchestrator = DebateOrchestrator(debater_a, debater_b, judge)
-    await orchestrator.run_debate()
+    verdict = await orchestrator.run_debate()
+
+    # Export results
+    exporter = DebateExporter()
+    exporter.export_to_markdown(args.topic, orchestrator.history, verdict)
+    exporter.export_to_json(args.topic, orchestrator.history, verdict)
+    print(f"\n[SUCCESS] Debate exported to results/debate_transcript.md")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

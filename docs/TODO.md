@@ -106,9 +106,9 @@
 19. [x] Main Entry Point (`src/main.py`)
     - [x] Argument parsing
     - [x] Execution flow
-20. [ ] Result Exporter (`src/services/exporter.py`)
-    - [ ] Export to Markdown
-    - [ ] Export to JSON
+20. [x] Result Exporter (`src/services/exporter.py`)
+    - [x] Export to Markdown
+    - [x] Export to JSON
 
 ## Phase 7: Testing
 21. [x] Unit Tests - Shared
