@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Debate Platform</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">AI Debate Platform</p>
+        <h1 id="debate-title">Loading debate...</h1>
+      </div>
+      <form id="debate-form" class="panel">
+        <label>Topic<input name="topic" placeholder="Is AI a threat?"></label>
+        <div class="grid">
+          <label>Debater A<input name="stance_a" placeholder="AI is a significant threat"></label>
+          <label>Debater B<input name="stance_b" placeholder="AI is not a threat"></label>
+        </div>
+        <label>Provider
+          <select name="provider">
+            <option value="mock">Mock</option>
+            <option value="openai">OpenAI</option>
+            <option value="gemini">Gemini</option>
+            <option value="groq">Groq</option>
+          </select>
+        </label>
+        <button id="run-button" type="submit">Run Debate</button>
+      </form>
+    </section>
+
+    <section class="layout">
+      <aside class="verdict">
+        <p class="eyebrow">Judge Verdict</p>
+        <p id="verdict-text">No verdict loaded yet.</p>
+      </aside>
+      <section class="transcript" aria-label="Debate transcript">
+        <div class="section-head">
+          <h2>Transcript</h2>
+          <span id="message-count">0 messages</span>
+        </div>
+        <div id="messages" class="messages"></div>
+      </section>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

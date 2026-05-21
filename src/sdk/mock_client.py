@@ -14,11 +14,6 @@ class MockAIClient(BaseAIClient):
         if "impartial judge" in system_msg.lower():
             return "Based on the 20 rounds of intense debate, I declare Debater A the winner. Score: 85-75."
 
-        stances = {
-            "Debater_A": "Pro-stance argument",
-            "Debater_B": "Opposing-stance rebuttal"
-        }
-
         return (
             f"Round {round_num}: I stand firmly by my position. "
             f"Regarding your last point: '{last_msg[:30]}...', "

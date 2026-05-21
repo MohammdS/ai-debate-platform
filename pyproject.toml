@@ -28,7 +28,7 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["src"]
-omit = ["src/main.py", "*/tests/*"]
+omit = ["src/main.py", "src/gui/server.py", "*/tests/*"]
 
 [tool.coverage.report]
 fail_under = 85

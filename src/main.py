@@ -3,11 +3,12 @@ import asyncio
 
 from src.sdk.factory import AIClientFactory
 from src.services.debater import Debater
+from src.services.exporter import DebateExporter
 from src.services.judge import Judge
 from src.services.orchestrator import DebateOrchestrator
-from src.services.exporter import DebateExporter
 from src.shared.config import ConfigManager
 from src.shared.gatekeeper import ApiGatekeeper
+
 
 async def main():
     parser = argparse.ArgumentParser(description="AI Debate Platform")
@@ -22,9 +23,10 @@ async def main():
 
     # Setup AI clients
     api_key = config.get_api_key(args.provider)
-    client_a = AIClientFactory.create_client(args.provider, "debater-a", api_key)
-    client_b = AIClientFactory.create_client(args.provider, "debater-b", api_key)
-    client_j = AIClientFactory.create_client(args.provider, "judge", api_key)
+    model = config.get_model(args.provider)
+    client_a = AIClientFactory.create_client(args.provider, model, api_key)
+    client_b = AIClientFactory.create_client(args.provider, model, api_key)
+    client_j = AIClientFactory.create_client(args.provider, model, api_key)
 
     # Setup roles
     debater_a = Debater("A", args.stance_a, args.topic, client_a, gatekeeper)
@@ -39,7 +41,7 @@ async def main():
     exporter = DebateExporter()
     exporter.export_to_markdown(args.topic, orchestrator.history, verdict)
     exporter.export_to_json(args.topic, orchestrator.history, verdict)
-    print(f"\n[SUCCESS] Debate exported to results/debate_transcript.md")
+    print("\n[SUCCESS] Debate exported to results/debate_transcript.md")
 
 
 if __name__ == "__main__":

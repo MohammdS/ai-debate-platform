@@ -12,4 +12,4 @@ async def test_debater_generate_argument():
     debater = Debater("A", "Pro-AI", "AI Future", client, gatekeeper)
 
     arg = await debater.get_argument([{"role": "user", "content": "Hello"}])
-    assert "stance remains firm" in arg
+    assert "stand firmly by my position" in arg

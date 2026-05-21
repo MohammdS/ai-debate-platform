@@ -23,9 +23,15 @@ class ConfigManager:
         """Retrieves API key for a given provider from environment variables."""
         key_map = {
             "openai": "OPENAI_API_KEY",
-            "anthropic": "ANTHROPIC_API_KEY"
+            "anthropic": "ANTHROPIC_API_KEY",
+            "gemini": "GEMINI_API_KEY",
+            "groq": "GROQ_API_KEY",
         }
         return os.getenv(key_map.get(provider.lower(), ""), "")
+
+    def get_model(self, provider: str, default: str = "mock-model") -> str:
+        """Retrieves the configured model for a provider."""
+        return self.get_value("api", f"{provider.lower()}_model", default)
 
     def get_value(self, category: str, key: str, default=None):
         """Retrieves a value from the JSON config."""
