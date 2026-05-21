@@ -9,6 +9,7 @@
 - [x] Add Gemini provider support.
 - [x] Add Groq provider support.
 - [x] Add provider model configuration.
+- [x] Add bounded round count for quick real-provider smoke tests.
 - [x] Add focused unit test for GUI backend integration.
 - [x] Add GUI PRD, plan, and task documentation.
 

@@ -18,11 +18,12 @@ async def test_run_debate_from_payload_exports_data(tmp_path, monkeypatch):
             "stance_a": "Go to Mars",
             "stance_b": "Stay on Earth",
             "provider": "mock",
+            "rounds": 1,
         }
     )
 
     assert result["topic"] == "Space policy"
-    assert len(result["history"]) == 20
+    assert len(result["history"]) == 2
     assert "winner" in result["verdict"].lower()
     assert (tmp_path / "results" / "debate.json").exists()
 
@@ -35,11 +36,11 @@ async def test_stream_debate_from_payload_yields_live_events(tmp_path, monkeypat
 
     events = [
         event async for event in stream_debate_from_payload(
-            {"topic": "Live topic", "provider": "mock"}
+            {"topic": "Live topic", "provider": "mock", "rounds": 1}
         )
     ]
 
     assert events[0] == {"type": "start", "topic": "Live topic"}
-    assert len([event for event in events if event["type"] == "message"]) == 20
+    assert len([event for event in events if event["type"] == "message"]) == 2
     assert events[-2]["type"] == "judging"
     assert events[-1]["type"] == "verdict"

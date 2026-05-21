@@ -9,6 +9,7 @@
 - `GET /api/results` loads the latest exported `results/debate.json`.
 - `POST /api/debates` runs a debate and returns `{ topic, history, verdict }`.
 - `POST /api/debates/stream` streams newline-delimited JSON events while the debate runs.
+- Both debate endpoints accept `rounds` from 1 to 10; default is 10.
 
 ## Providers
 - `mock` uses the local deterministic test client.

@@ -36,4 +36,4 @@ class GeminiClient(BaseAIClient):
                 continue
             role = "model" if message["role"] == "assistant" else "user"
             contents.append({"role": role, "parts": [{"text": message["content"]}]})
-        return contents
+        return contents or [{"role": "user", "parts": [{"text": "Begin the debate."}]}]

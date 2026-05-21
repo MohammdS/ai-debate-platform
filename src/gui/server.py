@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
@@ -41,7 +42,7 @@ class DebateGuiHandler(SimpleHTTPRequestHandler):
             data = asyncio.run(run_debate_from_payload(payload))
             self._send_json(data)
         except Exception as exc:  # pragma: no cover
-            self._send_json({"error": str(exc)}, status=500)
+            self._send_json({"error": self._safe_error(exc)}, status=500)
 
     def _stream_debate(self):
         try:
@@ -50,7 +51,7 @@ class DebateGuiHandler(SimpleHTTPRequestHandler):
             asyncio.run(self._write_stream(payload))
         except Exception as exc:  # pragma: no cover
             if not self.wfile.closed:
-                self._write_line({"type": "error", "error": str(exc)})
+                self._write_line({"type": "error", "error": self._safe_error(exc)})
 
     async def _write_stream(self, payload: dict):
         async for event in stream_debate_from_payload(payload):
@@ -66,6 +67,9 @@ class DebateGuiHandler(SimpleHTTPRequestHandler):
         line = json.dumps(event).encode("utf-8") + b"\n"
         self.wfile.write(line)
         self.wfile.flush()
+
+    def _safe_error(self, exc: Exception) -> str:
+        return re.sub(r"key=[^'\s]+", "key=REDACTED", str(exc))
 
     def _read_json(self) -> dict:
         length = int(self.headers.get("Content-Length", "0"))
