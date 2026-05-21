@@ -51,10 +51,10 @@ uv run python -m pytest --cov=src
 ```
 
 ## Documentation
-- [PRD](docs/PRD.md)
-- [Plan](docs/PLAN.md)
-- [Task List](docs/TODO.md)
-- [Prompts](docs/PROMPTS.md)
+- [PRD](docs/initial%20setup/PRD.md)
+- [Plan](docs/initial%20setup/PLAN.md)
+- [Task List](docs/initial%20setup/TODO.md)
+- [Prompts](docs/initial%20setup/PROMPTS.md)
 
 ## License
 MIT

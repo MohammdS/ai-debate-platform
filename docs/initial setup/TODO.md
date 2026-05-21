@@ -49,9 +49,9 @@
 ## Phase 2: Documentation & Prompts
 5. [x] Create Initial Documentation
    - [x] Write `README.md`
-   - [x] Write `docs/PRD.md`
-   - [x] Write `docs/PLAN.md`
-6. [x] Prompt Engineering Documentation (`docs/PROMPTS.md`)
+   - [x] Write `docs/initial setup/PRD.md`
+   - [x] Write `docs/initial setup/PLAN.md`
+6. [x] Prompt Engineering Documentation (`docs/initial setup/PROMPTS.md`)
    - [x] Document Debater A prompt strategy
    - [x] Document Debater B prompt strategy
    - [x] Document Judge prompt strategy
