@@ -39,9 +39,8 @@ class ZaiClient(BaseAIClient):
             "temperature": self.temperature,
         }
 
-        async with self._get_semaphore():
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(self._BASE_URL, headers=headers, json=payload)
+        async with self._get_semaphore(), httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(self._BASE_URL, headers=headers, json=payload)
 
         if not response.is_success:
             raise httpx.HTTPStatusError(

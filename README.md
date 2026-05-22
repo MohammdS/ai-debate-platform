@@ -14,8 +14,8 @@ A professional Python-based platform for structured, competitive AI debates.
 This project uses `uv` for package management.
 
 ```bash
-# Install uv if you haven't
-npm install -g @astral-sh/uv # or other methods
+# Install uv if you haven't (macOS/Linux)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Sync dependencies
 uv sync
@@ -37,10 +37,17 @@ Free-tier testing options:
 uv run python -m src.main --topic "Artificial General Intelligence" --stance-a "AGI is a risk" --stance-b "AGI is a benefit"
 ```
 
-Run with a free-tier provider:
+Run with specific providers per debater:
 
 ```bash
-uv run python -m src.main --provider groq --topic "AI in schools" --stance-a "AI should be allowed" --stance-b "AI should be restricted"
+uv run python -m src.main --topic "AI in schools" --stance-a "AI should be allowed" --stance-b "AI should be restricted" --provider-a groq --provider-b zai
+```
+
+Run the GUI:
+
+```bash
+uv run python -m src.gui.server
+# then open http://127.0.0.1:8000
 ```
 
 ## Testing

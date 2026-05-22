@@ -74,7 +74,7 @@ def _interactive_menu() -> dict:
     print(f"  Topic    : {topic}")
     print(f"  Debater A: {stance_a}  [{provider_a}]")
     print(f"  Debater B: {stance_b}  [{provider_b}]")
-    print(f"  Judge    : groq (fixed)")
+    print("  Judge    : groq (fixed)")
     print("-" * 60)
 
     confirm = _ask("\nStart debate? (y/n)", "y").lower()

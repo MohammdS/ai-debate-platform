@@ -1,0 +1,9 @@
+{
+  "version": "1.00",
+  "log_dir": "logs",
+  "max_lines_per_file": 500,
+  "max_files": 20,
+  "level": "INFO",
+  "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+  "rotation_policy": "FIFO"
+}
