@@ -1,0 +1,18 @@
+{
+  "debater_a": {
+    "provider": "gemini",
+    "model": "gemini-2.5-flash"
+  },
+  "debater_b": {
+    "provider": "gemini",
+    "model": "gemini-2.5-flash"
+  },
+  "judge": {
+    "provider": "gemini",
+    "model": "gemini-2.5-flash"
+  },
+  "default": {
+    "provider": "gemini",
+    "model": "gemini-2.5-flash"
+  }
+}

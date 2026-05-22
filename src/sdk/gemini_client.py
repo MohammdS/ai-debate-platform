@@ -12,7 +12,10 @@ class GeminiClient(BaseAIClient):
         payload = {
             "systemInstruction": self._system_instruction(messages),
             "contents": self._contents(messages),
-            "generationConfig": {"temperature": 0.7},
+            "generationConfig": {
+                "temperature": self.temperature,
+                "maxOutputTokens": self.max_tokens,
+            },
         }
 
         async with httpx.AsyncClient(timeout=60.0) as client:

@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 class ConfigManager:
     """Manages application configuration from JSON and environment variables."""
 
-    def __init__(self, config_path: str = "config/setup.json"):
+    def __init__(self, config_path: str | None = None):
+        config_path = config_path or str(Path(__file__).resolve().parents[2] / "config" / "setup.json")
         load_dotenv()
         self.config_path = Path(config_path)
         self.config_data = self._load_json_config()
@@ -26,6 +27,7 @@ class ConfigManager:
             "anthropic": "ANTHROPIC_API_KEY",
             "gemini": "GEMINI_API_KEY",
             "groq": "GROQ_API_KEY",
+            "zhipu": "ZHIPU_API_KEY",
         }
         return os.getenv(key_map.get(provider.lower(), ""), "")
 

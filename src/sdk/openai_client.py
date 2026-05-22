@@ -1,4 +1,3 @@
-
 import httpx
 
 from src.sdk.base_client import BaseAIClient
@@ -12,12 +11,13 @@ class OpenAIClient(BaseAIClient):
         url = "https://api.openai.com/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
         payload = {
             "model": self.model_name,
             "messages": messages,
-            "temperature": 0.7
+            "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
         }
 
         async with httpx.AsyncClient(timeout=60.0) as client:

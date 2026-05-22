@@ -1,0 +1,32 @@
+{
+  "default": {
+    "rpm_limit": 30,
+    "timeout_seconds": 60.0,
+    "max_retries": 3
+  },
+  "openai": {
+    "rpm_limit": 60,
+    "timeout_seconds": 60.0,
+    "max_retries": 3
+  },
+  "gemini": {
+    "rpm_limit": 60,
+    "timeout_seconds": 60.0,
+    "max_retries": 3
+  },
+  "groq": {
+    "rpm_limit": 20,
+    "timeout_seconds": 60.0,
+    "max_retries": 5
+  },
+  "mock": {
+    "rpm_limit": 10000,
+    "timeout_seconds": 5.0,
+    "max_retries": 1
+  },
+  "zhipu": {
+    "rpm_limit": 60,
+    "timeout_seconds": 60.0,
+    "max_retries": 3
+  }
+}
