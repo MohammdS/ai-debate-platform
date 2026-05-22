@@ -3,7 +3,7 @@ from src.sdk.gemini_client import GeminiClient
 from src.sdk.groq_client import GroqClient
 from src.sdk.mock_client import MockAIClient
 from src.sdk.openai_client import OpenAIClient
-from src.sdk.zhipu_client import ZhipuClient
+from src.sdk.zai_client import ZaiClient
 
 
 class AIClientFactory:
@@ -28,6 +28,6 @@ class AIClientFactory:
             return GroqClient(model_name, api_key, **kwargs)
         if provider == "mock":
             return MockAIClient(model_name, api_key, **kwargs)
-        if provider == "zhipu":
-            return ZhipuClient(model_name, api_key, **kwargs)
+        if provider == "zai":
+            return ZaiClient(model_name, api_key, **kwargs)
         raise ValueError(f"Unsupported provider: {provider}")

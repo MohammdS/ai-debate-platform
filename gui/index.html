@@ -19,14 +19,27 @@
           <label>Debater A<input name="stance_a" placeholder="AI is a significant threat"></label>
           <label>Debater B<input name="stance_b" placeholder="AI is not a threat"></label>
         </div>
-        <label>Provider
-          <select name="provider">
-            <option value="mock">Mock</option>
-            <option value="openai">OpenAI</option>
-            <option value="gemini">Gemini</option>
-            <option value="groq">Groq</option>
-          </select>
-        </label>
+        <div class="grid">
+          <label>Debater A Provider
+            <select name="provider_a">
+              <option value="zai">Z.ai</option>
+              <option value="groq">Groq</option>
+              <option value="gemini">Gemini</option>
+              <option value="openai">OpenAI</option>
+              <option value="mock">Mock</option>
+            </select>
+          </label>
+          <label>Debater B Provider
+            <select name="provider_b">
+              <option value="groq">Groq</option>
+              <option value="zai">Z.ai</option>
+              <option value="gemini">Gemini</option>
+              <option value="openai">OpenAI</option>
+              <option value="mock">Mock</option>
+            </select>
+          </label>
+        </div>
+        <p class="judge-note">Judge: Groq (fixed)</p>
         <label>Rounds<input name="rounds" type="number" min="1" max="10" value="10"></label>
         <button id="run-button" type="submit">Run Debate</button>
       </form>

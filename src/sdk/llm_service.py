@@ -24,10 +24,12 @@ class LLMService:
     """
 
     def __init__(self, config_path: Path = _MODELS_PATH,
-                 override_provider: str | None = None):
+                 override_provider: str | None = None,
+                 role_overrides: dict[str, str] | None = None):
         self._config = self._load(config_path)
         self._cfg_manager = ConfigManager()
         self._override = override_provider
+        self._role_overrides: dict[str, str] = role_overrides or {}
         self._debate_cfg = self._cfg_manager.config_data.get("debate", {})
 
     @staticmethod
@@ -41,11 +43,15 @@ class LLMService:
         return self._config.get(role) or self._config.get("default", {})
 
     def provider_for(self, role: str) -> str:
+        if role in self._role_overrides:
+            return self._role_overrides[role]
         if self._override:
             return self._override
         return self._role_config(role).get("provider", "mock")
 
     def model_for(self, role: str) -> str:
+        if role in self._role_overrides:
+            return self._cfg_manager.get_model(self._role_overrides[role])
         if self._override:
             return self._cfg_manager.get_model(self._override)
         return self._role_config(role).get("model", "mock-model")

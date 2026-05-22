@@ -14,9 +14,14 @@ def build_debate_services(payload: dict):
     topic    = payload.get("topic")    or "Is AI a threat?"
     stance_a = payload.get("stance_a") or "AI is a significant threat"
     stance_b = payload.get("stance_b") or "AI is not a threat"
-    override = payload.get("provider") or None  # None = use config/models.json
+    provider_a = payload.get("provider_a") or "zai"
+    provider_b = payload.get("provider_b") or "groq"
 
-    service = LLMService(override_provider=override)
+    service = LLMService(role_overrides={
+        "debater_a": provider_a,
+        "debater_b": provider_b,
+        "judge": "groq",
+    })
 
     debater_a = Debater("Pro", stance_a, topic,
                         service.get_client("debater_a"),

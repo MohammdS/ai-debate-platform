@@ -4,7 +4,7 @@
     "anthropic_model": "claude-3-opus-20240229",
     "gemini_model": "gemini-2.5-flash",
     "groq_model": "llama-3.1-8b-instant",
-    "zhipu_model": "glm-4.7-flash",
+    "zai_model": "glm-4.5-flash",
     "rate_limit_rpm": 30,
     "timeout_seconds": 60.0
   },

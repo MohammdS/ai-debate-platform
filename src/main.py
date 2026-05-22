@@ -15,7 +15,7 @@ from src.shared.logger import setup_logger
 
 logger = setup_logger("main")
 
-PROVIDERS = ["groq", "gemini", "openai", "zhipu", "mock"]
+PROVIDERS = ["groq", "gemini", "openai", "zai", "mock"]
 
 # ---------------------------------------------------------------------------
 # Menu helpers
@@ -42,20 +42,18 @@ def _choose_topic() -> str:
     return _ask("Debate topic")
 
 
-def _choose_provider() -> str | None:
-    print("\nSelect LLM provider (leave blank to use config/models.json):")
+def _choose_debater_provider(label: str, default_idx: int = 1) -> str:
+    print(f"\nSelect provider for {label}:")
     for i, p in enumerate(PROVIDERS, 1):
         print(f"  {i}. {p}")
-    print("  6. Use config/models.json (all agents=Gemini)")
-
-    choice = _ask("Choice", "6")
+    choice = _ask("Choice", str(default_idx))
     try:
         idx = int(choice) - 1
         if 0 <= idx < len(PROVIDERS):
             return PROVIDERS[idx]
     except ValueError:
         pass
-    return None
+    return PROVIDERS[default_idx - 1]
 
 
 def _interactive_menu() -> dict:
@@ -68,13 +66,15 @@ def _interactive_menu() -> dict:
 
     stance_a = _ask("\nStance for Debater A", "Yes, strongly agree")
     stance_b = _ask("Stance for Debater B", "No, strongly disagree")
-    provider = _choose_provider()
+
+    provider_a = _choose_debater_provider("Debater A", default_idx=4)  # zai
+    provider_b = _choose_debater_provider("Debater B", default_idx=1)  # groq
 
     print("\n" + "-" * 60)
     print(f"  Topic    : {topic}")
-    print(f"  Debater A: {stance_a}")
-    print(f"  Debater B: {stance_b}")
-    print(f"  Provider : {provider or 'config/models.json'}")
+    print(f"  Debater A: {stance_a}  [{provider_a}]")
+    print(f"  Debater B: {stance_b}  [{provider_b}]")
+    print(f"  Judge    : groq (fixed)")
     print("-" * 60)
 
     confirm = _ask("\nStart debate? (y/n)", "y").lower()
@@ -82,7 +82,8 @@ def _interactive_menu() -> dict:
         print("Cancelled.")
         sys.exit(0)
 
-    return {"topic": topic, "stance_a": stance_a, "stance_b": stance_b, "provider": provider}
+    return {"topic": topic, "stance_a": stance_a, "stance_b": stance_b,
+            "provider_a": provider_a, "provider_b": provider_b}
 
 
 # ---------------------------------------------------------------------------
@@ -90,8 +91,12 @@ def _interactive_menu() -> dict:
 # ---------------------------------------------------------------------------
 
 async def run_debate(topic: str, stance_a: str, stance_b: str,
-                     provider: str | None) -> None:
-    service = LLMService(override_provider=provider)
+                     provider_a: str = "zai", provider_b: str = "groq") -> None:
+    service = LLMService(role_overrides={
+        "debater_a": provider_a,
+        "debater_b": provider_b,
+        "judge": "groq",
+    })
 
     debater_a = Debater("Pro", stance_a, topic,
                         service.get_client("debater_a"),
@@ -141,11 +146,13 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="Run without arguments to launch the interactive menu.",
     )
-    parser.add_argument("--topic",    default=None)
-    parser.add_argument("--stance-a", default=None, dest="stance_a")
-    parser.add_argument("--stance-b", default=None, dest="stance_b")
-    parser.add_argument("--provider", default=None,
-                        help="groq | gemini | openai | mock")
+    parser.add_argument("--topic",      default=None)
+    parser.add_argument("--stance-a",   default=None, dest="stance_a")
+    parser.add_argument("--stance-b",   default=None, dest="stance_b")
+    parser.add_argument("--provider-a", default="zai",  dest="provider_a",
+                        help="groq | gemini | openai | zai | mock")
+    parser.add_argument("--provider-b", default="groq", dest="provider_b",
+                        help="groq | gemini | openai | zai | mock")
     args = parser.parse_args()
 
     # If any required arg is missing, launch interactive menu
@@ -153,10 +160,11 @@ def main() -> None:
         params = _interactive_menu()
     else:
         params = {
-            "topic":    args.topic,
-            "stance_a": args.stance_a,
-            "stance_b": args.stance_b,
-            "provider": args.provider,
+            "topic":      args.topic,
+            "stance_a":   args.stance_a,
+            "stance_b":   args.stance_b,
+            "provider_a": args.provider_a,
+            "provider_b": args.provider_b,
         }
 
     asyncio.run(run_debate(**params))

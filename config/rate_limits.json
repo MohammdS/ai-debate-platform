@@ -24,7 +24,7 @@
     "timeout_seconds": 5.0,
     "max_retries": 1
   },
-  "zhipu": {
+  "zai": {
     "rpm_limit": 60,
     "timeout_seconds": 60.0,
     "max_retries": 3

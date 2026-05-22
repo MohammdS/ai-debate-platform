@@ -124,7 +124,11 @@ class Judge(BaseAgent):
             self.logger.info("[judge] evaluating transcript (%d entries)", len(self.transcript))
             if self.event_queue:
                 await self.event_queue.put({"type": "judging"})
-            verdict_text = await self.evaluate(self.transcript)
+            try:
+                verdict_text = await self.evaluate(self.transcript)
+            except Exception as exc:
+                self.logger.error("[judge] verdict API call failed: %s", exc)
+                verdict_text = f"Verdict unavailable — judge API error: {exc}"
             print(f"\n{'='*50}\nJUDGE VERDICT:\n{verdict_text}\n{'='*50}")
 
             await self.verdict_channel.send(DebateMessage(

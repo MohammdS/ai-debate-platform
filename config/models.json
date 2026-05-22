@@ -1,18 +1,18 @@
 {
   "debater_a": {
-    "provider": "gemini",
-    "model": "gemini-2.5-flash"
+    "provider": "zai",
+    "model": "glm-4.5-flash"
   },
   "debater_b": {
-    "provider": "gemini",
-    "model": "gemini-2.5-flash"
+    "provider": "groq",
+    "model": "llama-3.1-8b-instant"
   },
   "judge": {
-    "provider": "gemini",
-    "model": "gemini-2.5-flash"
+    "provider": "groq",
+    "model": "llama-3.1-8b-instant"
   },
   "default": {
-    "provider": "gemini",
-    "model": "gemini-2.5-flash"
+    "provider": "groq",
+    "model": "llama-3.1-8b-instant"
   }
 }
