@@ -8,6 +8,8 @@ const modelSummary = document.querySelector("#model-summary");
 const judgeModel = document.querySelector("#judge-model");
 const judgeNote = document.querySelector("#judge-note");
 const themeToggle = document.querySelector("#theme-toggle");
+const transcriptTopic = document.querySelector("#transcript-topic");
+const verdictTopic = document.querySelector("#verdict-topic");
 
 let currentModelInfo = {};
 
@@ -69,8 +71,11 @@ function turnLabel(name, index) {
 
 function render(data) {
   const history = data.history || [];
+  const topic = cleanText(data.topic);
   renderModelSummary(data.model_info || {});
-  title.textContent = cleanText(data.topic) || "AI Debate Platform";
+  title.textContent = "AI Debate Platform";
+  transcriptTopic.textContent = topic ? `Topic: ${topic}` : "Topic will appear here after a debate starts.";
+  verdictTopic.textContent = topic ? `Topic: ${topic}` : "Topic will appear here after a debate starts.";
   verdict.textContent = cleanText(data.verdict) || "Run a debate to generate the judge's verdict.";
   count.textContent = `${history.length} message${history.length === 1 ? "" : "s"}`;
   messages.innerHTML = "";
@@ -94,8 +99,11 @@ function render(data) {
 }
 
 function resetLive(topicText, modelInfo) {
+  const topic = cleanText(topicText);
   renderModelSummary(modelInfo || {});
-  title.textContent = cleanText(topicText) || "AI Debate Platform";
+  title.textContent = "AI Debate Platform";
+  transcriptTopic.textContent = topic ? `Topic: ${topic}` : "Topic will appear here after a debate starts.";
+  verdictTopic.textContent = topic ? `Topic: ${topic}` : "Topic will appear here after a debate starts.";
   verdict.textContent = "Waiting for the debate to finish before the judge scores it.";
   count.textContent = "0 messages";
   messages.innerHTML = "";
@@ -149,9 +157,13 @@ async function runLiveDebate(payload) {
   }
 }
 
-async function loadLatest() {
-  const response = await fetch("/api/results");
-  render(await response.json());
+function renderEmptyState() {
+  render({
+    topic: "",
+    history: [],
+    verdict: "",
+    model_info: {}
+  });
 }
 
 form.addEventListener("submit", async (event) => {
@@ -175,4 +187,4 @@ themeToggle.addEventListener("change", () => {
 });
 
 applyTheme(localStorage.getItem("debate-theme") || "light");
-loadLatest();
+renderEmptyState();

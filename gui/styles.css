@@ -219,10 +219,19 @@ button:disabled {
 }
 
 .verdict h2 {
-  margin: -2px 0 14px;
+  margin: 0 0 14px;
   color: var(--judge);
   font-size: 0.96rem;
   line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.topic-line {
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
@@ -258,7 +267,7 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 9px;
+  margin-top: 8px;
 }
 
 .model-pill {
