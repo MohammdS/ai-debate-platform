@@ -69,12 +69,13 @@ def _interactive_menu() -> dict:
 
     provider_a = _choose_debater_provider("Debater A", default_idx=4)  # zai
     provider_b = _choose_debater_provider("Debater B", default_idx=1)  # groq
+    judge_provider = _choose_debater_provider("Judge", default_idx=1)  # groq
 
     print("\n" + "-" * 60)
     print(f"  Topic    : {topic}")
     print(f"  Debater A: {stance_a}  [{provider_a}]")
     print(f"  Debater B: {stance_b}  [{provider_b}]")
-    print("  Judge    : groq (fixed)")
+    print(f"  Judge    : {judge_provider}")
     print("-" * 60)
 
     confirm = _ask("\nStart debate? (y/n)", "y").lower()
@@ -83,7 +84,8 @@ def _interactive_menu() -> dict:
         sys.exit(0)
 
     return {"topic": topic, "stance_a": stance_a, "stance_b": stance_b,
-            "provider_a": provider_a, "provider_b": provider_b}
+            "provider_a": provider_a, "provider_b": provider_b,
+            "judge_provider": judge_provider}
 
 
 # ---------------------------------------------------------------------------
@@ -91,11 +93,12 @@ def _interactive_menu() -> dict:
 # ---------------------------------------------------------------------------
 
 async def run_debate(topic: str, stance_a: str, stance_b: str,
-                     provider_a: str = "zai", provider_b: str = "groq") -> None:
+                     provider_a: str = "zai", provider_b: str = "groq",
+                     judge_provider: str = "groq") -> None:
     service = LLMService(role_overrides={
         "debater_a": provider_a,
         "debater_b": provider_b,
-        "judge": "groq",
+        "judge": judge_provider,
     })
 
     debater_a = Debater("Pro", stance_a, topic,
@@ -153,6 +156,8 @@ def main() -> None:
                         help="groq | gemini | openai | zai | mock")
     parser.add_argument("--provider-b", default="groq", dest="provider_b",
                         help="groq | gemini | openai | zai | mock")
+    parser.add_argument("--judge-provider", default="groq", dest="judge_provider",
+                        help="groq | gemini | openai | zai | mock")
     args = parser.parse_args()
 
     # If any required arg is missing, launch interactive menu
@@ -165,6 +170,7 @@ def main() -> None:
             "stance_b":   args.stance_b,
             "provider_a": args.provider_a,
             "provider_b": args.provider_b,
+            "judge_provider": args.judge_provider,
         }
 
     asyncio.run(run_debate(**params))

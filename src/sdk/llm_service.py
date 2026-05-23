@@ -13,9 +13,10 @@ class LLMService:
     """
     Role-based LLM provider router.
 
-    Reads config/models.json to determine which provider and model to use
-    for each agent role (debater_a, debater_b, judge). Falls back to
-    "default" if a role is not explicitly configured.
+    Reads config/models.json to determine which provider to use for each
+    agent role (debater_a, debater_b, judge), then reads config/setup.json
+    for that provider's model name. Falls back to "default" if a role is
+    not explicitly configured.
 
     Usage:
         service = LLMService()
@@ -54,7 +55,9 @@ class LLMService:
             return self._cfg_manager.get_model(self._role_overrides[role])
         if self._override:
             return self._cfg_manager.get_model(self._override)
-        return self._role_config(role).get("model", "mock-model")
+        provider = self.provider_for(role)
+        configured_model = self._role_config(role).get("model")
+        return configured_model or self._cfg_manager.get_model(provider)
 
     def _gen_params(self, role: str) -> tuple[int, float]:
         """Return (max_tokens, temperature) for the given role."""

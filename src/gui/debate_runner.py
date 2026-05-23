@@ -9,19 +9,61 @@ from src.services.orchestrator import DebateOrchestrator
 from src.services.watchdog_agent import WatchdogAgent
 
 
+def _model_label(provider: str, model: str) -> str:
+    provider_names = {
+        "zai": "Z.ai",
+        "groq": "Groq",
+        "gemini": "Gemini",
+        "openai": "OpenAI",
+        "mock": "Mock",
+    }
+    return f"{provider_names.get(provider, provider)} {model}"
+
+
+def _model_info(service: LLMService) -> dict:
+    return {
+        "debater_a": {
+            "label": "Debater A",
+            "provider": service.provider_for("debater_a"),
+            "model": service.model_for("debater_a"),
+        },
+        "debater_b": {
+            "label": "Debater B",
+            "provider": service.provider_for("debater_b"),
+            "model": service.model_for("debater_b"),
+        },
+        "judge": {
+            "label": "Judge",
+            "provider": service.provider_for("judge"),
+            "model": service.model_for("judge"),
+        },
+    }
+
+
+def _with_display_names(model_info: dict) -> dict:
+    for item in model_info.values():
+        item["display"] = _model_label(item["provider"], item["model"])
+    return model_info
+
+
 def build_debate_services(payload: dict):
     """Create debate services from a browser payload using LLMService routing."""
     topic    = payload.get("topic")    or "Is AI a threat?"
     stance_a = payload.get("stance_a") or "AI is a significant threat"
     stance_b = payload.get("stance_b") or "AI is not a threat"
-    provider_a = payload.get("provider_a") or "zai"
-    provider_b = payload.get("provider_b") or "groq"
+    default_provider = payload.get("provider")
+    provider_a = payload.get("provider_a") or default_provider or "zai"
+    provider_b = payload.get("provider_b") or default_provider or "groq"
+    judge_provider = payload.get("judge_provider") or (
+        default_provider if default_provider == "mock" else "groq"
+    )
 
     service = LLMService(role_overrides={
         "debater_a": provider_a,
         "debater_b": provider_b,
-        "judge": "groq",
+        "judge": judge_provider,
     })
+    model_info = _with_display_names(_model_info(service))
 
     debater_a = Debater("Pro", stance_a, topic,
                         service.get_client("debater_a"),
@@ -36,12 +78,12 @@ def build_debate_services(payload: dict):
     judge     = Judge(service.get_client("judge"),
                       service.get_gatekeeper("judge"))
     rounds    = max(1, min(10, int(payload.get("rounds", 10))))
-    return topic, debater_a, debater_b, judge, rounds
+    return topic, debater_a, debater_b, judge, rounds, model_info
 
 
 async def run_debate_from_payload(payload: dict) -> dict:
     """Run a full debate via the IPC orchestrator (watchdog-monitored) and return the result."""
-    topic, debater_a, debater_b, judge, rounds = build_debate_services(payload)
+    topic, debater_a, debater_b, judge, rounds, model_info = build_debate_services(payload)
     orchestrator = DebateOrchestrator(debater_a, debater_b, judge, rounds)
 
     verdict_box: list[str] = []
@@ -56,9 +98,9 @@ async def run_debate_from_payload(payload: dict) -> dict:
 
     verdict = verdict_box[0] if verdict_box else "Debate did not complete."
     exporter = DebateExporter()
-    exporter.export_to_markdown(topic, orchestrator.history, verdict)
-    exporter.export_to_json(topic, orchestrator.history, verdict)
-    return {"topic": topic, "history": orchestrator.history, "verdict": verdict}
+    exporter.export_to_markdown(topic, orchestrator.history, verdict, model_info=model_info)
+    exporter.export_to_json(topic, orchestrator.history, verdict, model_info=model_info)
+    return {"topic": topic, "history": orchestrator.history, "verdict": verdict, "model_info": model_info}
 
 
 async def stream_debate_from_payload(payload: dict):
@@ -69,13 +111,13 @@ async def stream_debate_from_payload(payload: dict):
     onto event_queue as each argument is relayed. Yields NDJSON-compatible
     event dicts that the GUI reads via fetch + ReadableStream.
     """
-    topic, debater_a, debater_b, judge, rounds = build_debate_services(payload)
+    topic, debater_a, debater_b, judge, rounds, model_info = build_debate_services(payload)
 
     event_queue: asyncio.Queue = asyncio.Queue()
     judge.event_queue = event_queue
 
     orchestrator = DebateOrchestrator(debater_a, debater_b, judge, rounds)
-    yield {"type": "start", "topic": topic}
+    yield {"type": "start", "topic": topic, "model_info": model_info}
 
     debate_task = asyncio.create_task(orchestrator.run_debate())
 
@@ -90,6 +132,12 @@ async def stream_debate_from_payload(payload: dict):
 
     verdict = await debate_task
     exporter = DebateExporter()
-    exporter.export_to_markdown(topic, orchestrator.history, verdict)
-    exporter.export_to_json(topic, orchestrator.history, verdict)
-    yield {"type": "verdict", "topic": topic, "history": orchestrator.history, "verdict": verdict}
+    exporter.export_to_markdown(topic, orchestrator.history, verdict, model_info=model_info)
+    exporter.export_to_json(topic, orchestrator.history, verdict, model_info=model_info)
+    yield {
+        "type": "verdict",
+        "topic": topic,
+        "history": orchestrator.history,
+        "verdict": verdict,
+        "model_info": model_info,
+    }

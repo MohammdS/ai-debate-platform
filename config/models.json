@@ -1,18 +1,14 @@
 {
   "debater_a": {
-    "provider": "zai",
-    "model": "glm-4.5-flash"
+    "provider": "zai"
   },
   "debater_b": {
-    "provider": "groq",
-    "model": "llama-3.1-8b-instant"
+    "provider": "groq"
   },
   "judge": {
-    "provider": "groq",
-    "model": "llama-3.1-8b-instant"
+    "provider": "groq"
   },
   "default": {
-    "provider": "groq",
-    "model": "llama-3.1-8b-instant"
+    "provider": "groq"
   }
 }
