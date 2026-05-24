@@ -23,11 +23,11 @@ class ConfigManager:
     def get_api_key(self, provider: str) -> str:
         """Retrieves API key for a given provider from environment variables."""
         key_map = {
-            "openai": "OPENAI_API_KEY",
+            "openai":    "OPENAI_API_KEY",
             "anthropic": "ANTHROPIC_API_KEY",
-            "gemini": "GEMINI_API_KEY",
-            "groq": "GROQ_API_KEY",
-            "zai": "ZAI_API_KEY",
+            "gemini":    "GEMINI_API_KEY",
+            "groq":      "GROQ_API_KEY",
+            "zai":       "ZAI_API_KEY",
 
         }
         return os.getenv(key_map.get(provider.lower(), ""), "")

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -6,16 +8,13 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-try:
-    from httpx import HTTPStatusError as _HTTPStatusError
-except ImportError:
-    _HTTPStatusError = None  # type: ignore[assignment,misc]
+from src.sdk.exceptions import AIClientError, RateLimitError
 
 _RATE_LIMITS_PATH = Path(__file__).resolve().parents[2] / "config" / "rate_limits.json"
+_PRICING_PATH     = Path(__file__).resolve().parents[2] / "config" / "pricing.json"
 
 
 def _load_limits(provider: str) -> dict:
-    """Load rate limit config for a provider from config/rate_limits.json."""
     try:
         data = json.loads(_RATE_LIMITS_PATH.read_text())
         return data.get(provider, data.get("default", {}))
@@ -23,46 +22,96 @@ def _load_limits(provider: str) -> dict:
         return {}
 
 
+def _load_pricing(provider: str, model: str) -> tuple[float, float]:
+    """Return (input_per_1m, output_per_1m) USD for provider+model."""
+    try:
+        data  = json.loads(_PRICING_PATH.read_text())
+        pdata = data.get(provider, data.get("default", {}))
+        rates = pdata.get(model, pdata.get("default", data.get("default", {})))
+        if isinstance(rates, dict):
+            return float(rates.get("input_per_1m", 0.10)), float(rates.get("output_per_1m", 0.10))
+    except (FileNotFoundError, json.JSONDecodeError, TypeError):
+        pass
+    return 0.10, 0.10
+
+
 class ApiGatekeeper:
     """
-    Centralized API call manager.
-
-    - Rate limiting: enforces minimum interval between calls (RPM-based).
-    - Timeout:       each call wrapped in asyncio.wait_for to avoid hangs.
-    - Retry:         exponential backoff up to max_retries attempts.
-    - Logging:       every call attempt and outcome is logged.
-    - Config:        limits read from config/rate_limits.json by provider.
-
-    API keys are never stored here — they live in env vars only.
+    Centralized API call manager: rate limiting, timeout, retry, fallback,
+    token tracking, cost estimation, and structured JSON logging.
     """
 
     def __init__(self, rpm_limit: int | None = None, timeout: float | None = None,
-                 max_retries: int | None = None, provider: str = "default"):
+                 max_retries: int | None = None, provider: str = "default",
+                 model: str = "default"):
         limits = _load_limits(provider)
-        self.rpm_limit   = rpm_limit   if rpm_limit   is not None else limits.get("rpm_limit",       30)
-        self.timeout     = timeout     if timeout     is not None else limits.get("timeout_seconds", 60.0)
-        self.max_retries = max_retries if max_retries is not None else limits.get("max_retries",      3)
-        self.interval    = 60.0 / self.rpm_limit
-        self._last_call  = 0.0
-        self._rate_lock  = asyncio.Lock()
-        self._logger     = logging.getLogger("gatekeeper")
-        self._call_count = 0
+        self._provider  = provider
+        self._model     = model
+        self._in_rate, self._out_rate = _load_pricing(provider, model)
+        self.rpm_limit        = rpm_limit   if rpm_limit   is not None else limits.get("rpm_limit",       30)
+        self.timeout          = timeout     if timeout     is not None else limits.get("timeout_seconds", 60.0)
+        self.max_retries      = max_retries if max_retries is not None else limits.get("max_retries",      3)
+        self._retry_after     = limits.get("retry_after_seconds", 30)
+        self.interval         = 60.0 / self.rpm_limit
+        self._last_call       = 0.0
+        self._rate_lock       = asyncio.Lock()
+        self._logger          = logging.getLogger("gatekeeper")
+        self._call_count      = 0
+        self.total_calls      = 0
+        self.total_latency_ms = 0.0
+        self.total_errors     = 0
+        self.total_tokens_in  = 0
+        self.total_tokens_out = 0
+        self.estimated_cost_usd = 0.0
+
+    def get_stats(self) -> dict:
+        """Return accumulated call, token, and cost statistics."""
+        return {
+            "total_calls":        self.total_calls,
+            "total_latency_ms":   self.total_latency_ms,
+            "total_errors":       self.total_errors,
+            "total_tokens_in":    self.total_tokens_in,
+            "total_tokens_out":   self.total_tokens_out,
+            "estimated_cost_usd": round(self.estimated_cost_usd, 6),
+        }
+
+    def _read_usage(self, func: Callable) -> tuple[int, int]:
+        """Read last_usage from the client bound to *func* (if available)."""
+        client = getattr(func, "__self__", None)
+        usage  = getattr(client, "last_usage", {})
+        return (int(usage.get("prompt_tokens", 0)),
+                int(usage.get("completion_tokens", 0)))
+
+    def _accrue(self, tokens_in: int, tokens_out: int) -> float:
+        """Update token totals and return the cost for this call."""
+        self.total_tokens_in  += tokens_in
+        self.total_tokens_out += tokens_out
+        cost = (tokens_in  * self._in_rate  / 1_000_000 +
+                tokens_out * self._out_rate / 1_000_000)
+        self.estimated_cost_usd += cost
+        return cost
 
     async def _throttle(self) -> None:
-        """Acquire rate-limit slot; lock released before the API call."""
         async with self._rate_lock:
             elapsed = time.monotonic() - self._last_call
             if elapsed < self.interval:
                 await asyncio.sleep(self.interval - elapsed)
             self._last_call = time.monotonic()
 
-    async def execute(self, func: Callable, *args: Any, **kwargs: Any) -> Any:
-        """
-        Execute func(*args, **kwargs) with rate limiting, timeout, and retries.
+    def _log_structured(self, latency_ms: float, success: bool,
+                        error: str | None, tokens_in: int = 0,
+                        tokens_out: int = 0, cost: float = 0.0) -> None:
+        record = {
+            "event": "api_call", "provider": self._provider, "model": self._model,
+            "latency_ms": round(latency_ms, 2), "success": success, "error": error,
+            "tokens_in": tokens_in, "tokens_out": tokens_out,
+            "cost_usd": round(cost, 6),
+        }
+        self._logger.debug(json.dumps(record))
 
-        Logs each attempt and its outcome.
-        Raises the last exception if all retries are exhausted.
-        """
+    async def execute(self, func: Callable, *args: Any,
+                      fallback_client: Any = None, **kwargs: Any) -> Any:
+        """Execute func with rate limiting, timeout, retries, and token tracking."""
         await self._throttle()
         self._call_count += 1
         call_id = self._call_count
@@ -71,35 +120,65 @@ class ApiGatekeeper:
 
         last_exc: Exception | None = None
         for attempt in range(self.max_retries):
+            t_start = time.monotonic()
             try:
-                result = await asyncio.wait_for(
-                    func(*args, **kwargs), timeout=self.timeout
-                )
-                self._logger.info("API call #%d succeeded on attempt %d",
-                                  call_id, attempt + 1)
+                result  = await asyncio.wait_for(func(*args, **kwargs), timeout=self.timeout)
+                latency = (time.monotonic() - t_start) * 1000
+                t_in, t_out = self._read_usage(func)
+                cost = self._accrue(t_in, t_out)
+                self.total_calls      += 1
+                self.total_latency_ms += latency
+                self._logger.info("API call #%d succeeded (attempt %d, %d+%d tokens, $%.6f)",
+                                  call_id, attempt + 1, t_in, t_out, cost)
+                self._log_structured(latency, True, None, t_in, t_out, cost)
                 return result
+
             except TimeoutError as exc:
                 self._logger.warning("API call #%d timed out (attempt %d/%d)",
                                      call_id, attempt + 1, self.max_retries)
                 last_exc = exc
                 if attempt < self.max_retries - 1:
                     await asyncio.sleep(2 ** attempt)
-                continue
-            except Exception as exc:
-                # 429 Too Many Requests — back off longer than standard retry
-                if _HTTPStatusError and isinstance(exc, _HTTPStatusError) and exc.response.status_code == 429:
-                    retry_after = int(exc.response.headers.get("retry-after", 60))
-                    self._logger.warning("API call #%d got 429 — waiting %ds before retry",
-                                         call_id, retry_after)
-                    await asyncio.sleep(retry_after)
-                else:
-                    self._logger.warning("API call #%d failed (attempt %d/%d): %s",
-                                         call_id, attempt + 1, self.max_retries, exc)
-                    if attempt < self.max_retries - 1:
-                        await asyncio.sleep(2 ** attempt)
-                last_exc = exc
-                continue
 
-        self._logger.error("API call #%d exhausted all %d retries",
-                           call_id, self.max_retries)
+            except RateLimitError as exc:
+                self._logger.warning("API call #%d RateLimitError — waiting %ds",
+                                     call_id, self._retry_after)
+                last_exc = exc
+                await asyncio.sleep(self._retry_after)
+
+            except AIClientError as exc:
+                latency = (time.monotonic() - t_start) * 1000
+                self._logger.warning("API call #%d AIClientError (attempt %d/%d): %s",
+                                     call_id, attempt + 1, self.max_retries, exc)
+                last_exc = exc
+                if fallback_client is not None:
+                    self._logger.info("API call #%d — trying fallback client", call_id)
+                    try:
+                        result  = await asyncio.wait_for(
+                            fallback_client.generate_response(*args, **kwargs),
+                            timeout=self.timeout)
+                        latency = (time.monotonic() - t_start) * 1000
+                        t_in, t_out = self._read_usage(fallback_client.generate_response)
+                        cost = self._accrue(t_in, t_out)
+                        self.total_calls      += 1
+                        self.total_latency_ms += latency
+                        self._log_structured(latency, True, None, t_in, t_out, cost)
+                        return result
+                    except Exception as fb_exc:
+                        self._logger.warning("Fallback also failed: %s", fb_exc)
+                        last_exc = fb_exc
+                if attempt < self.max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+
+            except Exception as exc:
+                self._logger.warning("API call #%d failed (attempt %d/%d): %s",
+                                     call_id, attempt + 1, self.max_retries, exc)
+                last_exc = exc
+                if attempt < self.max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+
+        self.total_calls  += 1
+        self.total_errors += 1
+        self._log_structured(0.0, False, str(last_exc))
+        self._logger.error("API call #%d exhausted all %d retries", call_id, self.max_retries)
         raise last_exc

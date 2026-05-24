@@ -10,7 +10,7 @@ from src.services.watchdog_agent import AgentStatus, WatchdogAgent
 # ------------------------------------------------------------------
 
 def make_watchdog(max_failures: int = 3, poll: float = 0.05) -> WatchdogAgent:
-    return WatchdogAgent(max_failures=max_failures, poll_interval=poll)
+    return WatchdogAgent(max_failures=max_failures, poll_interval=poll, backoff_base=0.0)
 
 
 async def healthy_agent():
@@ -133,7 +133,7 @@ async def test_logs_failure(caplog):
     with caplog.at_level(logging.ERROR, logger="watchdog"):
         await wd.start()
 
-    assert any("died" in r.message for r in caplog.records)
+    assert any("dead" in r.message for r in caplog.records)
 
 
 @pytest.mark.asyncio
@@ -144,7 +144,7 @@ async def test_logs_critical_on_system_stop(caplog):
     with caplog.at_level(logging.CRITICAL, logger="watchdog"):
         await wd.start()
 
-    assert any("exceeded max failures" in r.message for r in caplog.records)
+    assert any("max_failures" in r.message for r in caplog.records)
 
 
 @pytest.mark.asyncio

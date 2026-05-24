@@ -2,31 +2,37 @@
   "default": {
     "rpm_limit": 30,
     "timeout_seconds": 60.0,
-    "max_retries": 3
+    "max_retries": 3,
+    "retry_after_seconds": 30
   },
   "openai": {
     "rpm_limit": 60,
     "timeout_seconds": 60.0,
-    "max_retries": 3
+    "max_retries": 3,
+    "retry_after_seconds": 30
   },
   "gemini": {
     "rpm_limit": 60,
     "timeout_seconds": 60.0,
-    "max_retries": 3
+    "max_retries": 3,
+    "retry_after_seconds": 30
   },
   "groq": {
     "rpm_limit": 20,
     "timeout_seconds": 60.0,
-    "max_retries": 5
+    "max_retries": 5,
+    "retry_after_seconds": 60
   },
   "mock": {
     "rpm_limit": 10000,
     "timeout_seconds": 5.0,
-    "max_retries": 1
+    "max_retries": 1,
+    "retry_after_seconds": 0
   },
   "zai": {
     "rpm_limit": 60,
     "timeout_seconds": 60.0,
-    "max_retries": 3
+    "max_retries": 3,
+    "retry_after_seconds": 30
   }
 }

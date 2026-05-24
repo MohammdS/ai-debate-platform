@@ -41,6 +41,20 @@
         </div>
         <p class="judge-note">Judge: Groq (fixed)</p>
         <label>Rounds<input name="rounds" type="number" min="1" max="10" value="10"></label>
+        <details style="margin-top:0.5rem;">
+          <summary style="cursor:pointer;font-size:0.9rem;font-weight:600;">RAG (Knowledge Base)</summary>
+          <div class="grid" style="margin-top:0.5rem;">
+            <label style="flex-direction:row;align-items:center;gap:0.4rem;">
+              <input type="checkbox" name="use_rag" value="true"> Enable RAG
+            </label>
+            <label style="flex-direction:row;align-items:center;gap:0.4rem;">
+              <input type="checkbox" name="rebuild_index" value="true"> Rebuild index
+            </label>
+          </div>
+          <label style="margin-top:0.25rem;">Top-K passages
+            <input name="top_k" type="number" min="1" max="10" value="3">
+          </label>
+        </details>
         <button id="run-button" type="submit">Run Debate</button>
       </form>
     </section>
@@ -49,6 +63,10 @@
       <aside class="verdict">
         <p class="eyebrow">Judge Verdict</p>
         <p id="verdict-text">No verdict loaded yet.</p>
+        <details id="token-details" style="margin-top:1rem;font-size:0.85rem;" hidden>
+          <summary style="cursor:pointer;font-weight:600;">Token Usage</summary>
+          <dl id="token-stats" style="margin-top:0.5rem;display:grid;grid-template-columns:auto 1fr;gap:0.2rem 0.75rem;"></dl>
+        </details>
       </aside>
       <section class="transcript" aria-label="Debate transcript">
         <div class="section-head">

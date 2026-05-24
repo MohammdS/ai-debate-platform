@@ -1,12 +1,13 @@
 import httpx
 
 from src.sdk.base_client import BaseAIClient
+from src.sdk.exceptions import ProviderHTTPError, ProviderTimeoutError, RateLimitError
 
 
 class OpenAIClient(BaseAIClient):
     """Client for interacting with OpenAI API."""
 
-    async def generate_response(self, messages: list[dict[str, str]]) -> str:
+    async def generate_response(self, messages: list[dict]) -> str:
         """Sends a chat completion request to OpenAI."""
         url = "https://api.openai.com/v1/chat/completions"
         headers = {
@@ -20,8 +21,17 @@ class OpenAIClient(BaseAIClient):
             "temperature": self.temperature,
         }
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(url, headers=headers, json=payload)
-            response.raise_for_status()
-            data = response.json()
-            return data["choices"][0]["message"]["content"]
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(url, headers=headers, json=payload)
+        except httpx.TimeoutException as exc:
+            raise ProviderTimeoutError("OpenAI request timed out") from exc
+
+        if response.status_code == 429:
+            raise RateLimitError(f"OpenAI rate limit exceeded: {response.text[:200]}")
+        if not response.is_success:
+            raise ProviderHTTPError(response.status_code, response.text)
+
+        data = response.json()
+        self._store_usage(data)
+        return self._validate_response_shape(data, ["choices", 0, "message", "content"])

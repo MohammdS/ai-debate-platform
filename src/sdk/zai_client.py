@@ -4,6 +4,12 @@ import logging
 import httpx
 
 from src.sdk.base_client import BaseAIClient
+from src.sdk.exceptions import (
+    InvalidResponseError,
+    ProviderHTTPError,
+    ProviderTimeoutError,
+    RateLimitError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +32,7 @@ class ZaiClient(BaseAIClient):
             cls._semaphore_loop = loop
         return cls._semaphore
 
-    async def generate_response(self, messages: list[dict[str, str]]) -> str:
+    async def generate_response(self, messages: list[dict]) -> str:
         """Sends a chat completion request to z.ai."""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -39,22 +45,24 @@ class ZaiClient(BaseAIClient):
             "temperature": self.temperature,
         }
 
-        async with self._get_semaphore(), httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(self._BASE_URL, headers=headers, json=payload)
+        try:
+            async with self._get_semaphore(), httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(self._BASE_URL, headers=headers, json=payload)
+        except httpx.TimeoutException as exc:
+            raise ProviderTimeoutError("z.ai request timed out") from exc
 
+        if response.status_code == 429:
+            raise RateLimitError(f"z.ai rate limit exceeded: {response.text[:200]}")
         if not response.is_success:
-            raise httpx.HTTPStatusError(
-                f"{response.status_code} — body: {response.text[:500]}",
-                request=response.request,
-                response=response,
-            )
+            raise ProviderHTTPError(response.status_code, response.text)
+
         data = response.json()
-        content = data["choices"][0]["message"].get("content") or ""
+        self._store_usage(data)
+        content = self._validate_response_shape(data, ["choices", 0, "message", "content"])
         if not content.strip():
             finish_reason = data["choices"][0].get("finish_reason", "unknown")
-            raise ValueError(
-                f"z.ai returned empty content (finish_reason={finish_reason!r}). "
-                f"Full choice: {data['choices'][0]}"
+            raise InvalidResponseError(
+                f"z.ai returned empty content (finish_reason={finish_reason!r})"
             )
         logger.debug("z.ai response received (%d chars)", len(content))
         return content

@@ -4,9 +4,26 @@ const messages = document.querySelector("#messages");
 const count = document.querySelector("#message-count");
 const form = document.querySelector("#debate-form");
 const button = document.querySelector("#run-button");
+const tokenDetails = document.querySelector("#token-details");
+const tokenStats = document.querySelector("#token-stats");
 
 function labelFor(name) {
   return name === "Debater_B" ? "Debater B" : "Debater A";
+}
+
+function renderTokenStats(stats) {
+  if (!stats) { tokenDetails.hidden = true; return; }
+  const tIn  = (stats.total_tokens_in  || 0).toLocaleString();
+  const tOut = (stats.total_tokens_out || 0).toLocaleString();
+  const tTot = ((stats.total_tokens_in || 0) + (stats.total_tokens_out || 0)).toLocaleString();
+  const cost = (stats.estimated_cost_usd || 0).toFixed(6);
+  tokenStats.innerHTML = `
+    <dt>Tokens in</dt>  <dd>${tIn}</dd>
+    <dt>Tokens out</dt> <dd>${tOut}</dd>
+    <dt>Total</dt>      <dd>${tTot}</dd>
+    <dt>Est. cost</dt>  <dd>$${cost} USD</dd>
+  `;
+  tokenDetails.hidden = false;
 }
 
 function render(data) {
@@ -14,6 +31,7 @@ function render(data) {
   title.textContent = data.topic || "AI Debate Platform";
   verdict.textContent = data.verdict || "Run a debate to generate the judge verdict.";
   count.textContent = `${history.length} message${history.length === 1 ? "" : "s"}`;
+  renderTokenStats(data.token_stats || null);
   messages.innerHTML = "";
 
   if (history.length === 0) {

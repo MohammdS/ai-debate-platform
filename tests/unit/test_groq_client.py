@@ -8,6 +8,10 @@ async def test_groq_client_generate_response(monkeypatch):
     calls = {}
 
     class MockResponse:
+        status_code = 200
+        is_success = True
+        text = ""
+
         def json(self):
             return {"choices": [{"message": {"content": "groq response"}}]}
 

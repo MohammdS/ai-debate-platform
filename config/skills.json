@@ -1,23 +1,4 @@
 {
-  "skills": {
-    "evidence_based": {
-      "label": "FACTS FIRST",
-      "instruction": "Back every point with real, widely-known facts or plain logic. No invented stats, no made-up studies. If you don't have a verified fact, reason from what everyone knows. When your opponent makes a claim without backing, call it out directly and explain why it falls apart."
-    },
-    "socratic": {
-      "label": "QUESTION AND PRESSURE",
-      "instruction": "Push back on your opponent's assumptions with sharp, targeted questions. Don't accept their framing — flip it. You may ask ONE question per response, placed naturally where it lands hardest. No question-stacking."
-    },
-    "storytelling": {
-      "label": "SHOW DON'T TELL",
-      "instruction": "Ground your argument in a real, well-known moment — a match, a season, a career highlight or low point. Make it concrete and vivid. No fabricated events or invented sources."
-    },
-    "logical_fallacy": {
-      "label": "CATCH THE FLAW",
-      "instruction": "Spot the flaw in your opponent's last argument and name it plainly (e.g. 'That's a false comparison' or 'That's cherry-picking'). Then make your own point on solid ground."
-    }
-  },
-
   "agents": {
     "pro": {
       "stance_directive": "You are arguing FOR: {stance}. Stay on that side no matter what. Hit back at your opponent's last point, then push your own case forward. Talk like a sharp sports analyst on a live show — confident, direct, no hedging.",

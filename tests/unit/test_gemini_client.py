@@ -8,6 +8,10 @@ async def test_gemini_client_generate_response(monkeypatch):
     calls = {}
 
     class MockResponse:
+        status_code = 200
+        is_success = True
+        text = ""
+
         def json(self):
             return {"candidates": [{"content": {"parts": [{"text": "gemini response"}]}}]}
 
@@ -34,6 +38,10 @@ async def test_gemini_client_seeds_first_turn(monkeypatch):
     calls = {}
 
     class MockResponse:
+        status_code = 200
+        is_success = True
+        text = ""
+
         def json(self):
             return {"candidates": [{"content": {"parts": [{"text": "first turn"}]}}]}
 

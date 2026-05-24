@@ -34,20 +34,13 @@ class DebaterSkill(StrEnum):
     LOGICAL_FALLACY = "logical_fallacy"
 
 
-def get_skill_instruction(skill: DebaterSkill) -> str:
-    return _PROMPTS.get("skills", {}).get(skill, {}).get("instruction", str(skill))
-
-
 def get_agent_prompt(role: str) -> dict:
     return _PROMPTS.get("agents", {}).get(role, {})
 
 
 def enforce_word_limit(text: str, max_words: int, label: str,
                        logger: logging.Logger) -> str:
-    """
-    Truncates text to max_words if exceeded, logging a warning.
-    Truncation is on word boundary with ellipsis appended.
-    """
+    """Truncates text to max_words if exceeded, logging a warning."""
     words = text.split()
     if len(words) <= max_words:
         return text
@@ -63,16 +56,37 @@ class BaseAgent(ABC):
     Provides:
     - Shared client + gatekeeper wiring
     - IPC inbox/outbox slot declarations
-    - Abstract run() contract every agent must implement
+    - Abstract generate() and run() contracts every agent must implement
+    - Shared _build_messages() and _validate_response() helpers
     """
 
-    def __init__(self, name: str, client: BaseAIClient, gatekeeper: ApiGatekeeper):
+    def __init__(self, name: str, client: BaseAIClient, gatekeeper: ApiGatekeeper,
+                 role: str = "", system_prompt: str = ""):
         self.name = name
+        self.role = role
+        self.system_prompt = system_prompt
         self.client = client
         self.gatekeeper = gatekeeper
         self.logger: logging.Logger = setup_logger()
         self.inbox:  IpcChannel | None = None
         self.outbox: IpcChannel | None = None
+
+    def _build_messages(self, user_content: str) -> list[dict]:
+        """Prepend the system prompt to a single user message."""
+        return [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user",   "content": user_content},
+        ]
+
+    def _validate_response(self, response: str) -> str:
+        """Raise ValueError if response is empty or blank; else return it."""
+        if not response or not response.strip():
+            raise ValueError(f"[{self.name}] received empty response from LLM")
+        return response
+
+    @abstractmethod
+    async def generate(self, messages: list[dict]) -> str:
+        """Call the LLM with messages and return the text response."""
 
     @abstractmethod
     async def run(self) -> None:
