@@ -10,9 +10,11 @@ class EvidenceSkill(BaseSkill):
         return context.skill_type == "evidence_based"
 
     def run(self, context: SkillContext) -> SkillResult:
+        topic_hint = f" about '{context.topic}'" if context.topic else ""
         content = (
-            "Support your argument with facts, data, or widely known evidence. "
-            "Avoid invented statistics."
+            f"Support your argument{topic_hint} with concrete facts, data, or "
+            "widely recognised evidence. Cite the source or institution behind "
+            "each claim. Avoid invented statistics."
         )
         return SkillResult(
             skill_name=self.name,

@@ -11,11 +11,11 @@ from src.shared.config import ConfigManager
 def _load_log_config() -> tuple[str, int, int]:
     """Returns (log_dir, max_lines_per_file, max_files) from setup.json."""
     try:
-        cfg = ConfigManager().get("logs", {})
+        cfg = ConfigManager()
         return (
-            cfg.get("log_dir", "logs"),
-            cfg.get("max_lines_per_file", 500),
-            cfg.get("max_files", 20),
+            cfg.get_value("logs", "log_dir", "logs"),
+            cfg.get_value("logs", "max_lines_per_file", 500),
+            cfg.get_value("logs", "max_files", 20),
         )
     except Exception:
         return ("logs", 500, 20)

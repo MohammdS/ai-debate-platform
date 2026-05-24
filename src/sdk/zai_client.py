@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 
 import httpx
@@ -56,7 +57,10 @@ class ZaiClient(BaseAIClient):
         if not response.is_success:
             raise ProviderHTTPError(response.status_code, response.text)
 
-        data = response.json()
+        try:
+            data = response.json()
+        except json.JSONDecodeError as exc:
+            raise InvalidResponseError(f"z.ai returned invalid JSON: {response.text[:200]}") from exc
         self._store_usage(data)
         content = self._validate_response_shape(data, ["choices", 0, "message", "content"])
         if not content.strip():

@@ -13,6 +13,8 @@ from src.sdk.exceptions import AIClientError, RateLimitError
 _RATE_LIMITS_PATH = Path(__file__).resolve().parents[2] / "config" / "rate_limits.json"
 _PRICING_PATH     = Path(__file__).resolve().parents[2] / "config" / "pricing.json"
 
+from src.shared.constants import DEFAULT_RPM_LIMIT  # noqa: E402
+
 
 def _load_limits(provider: str) -> dict:
     try:
@@ -39,7 +41,29 @@ class ApiGatekeeper:
     """
     Centralized API call manager: rate limiting, timeout, retry, fallback,
     token tracking, cost estimation, and structured JSON logging.
+
+    Rate limiting is enforced globally per provider — all gatekeeper instances
+    that share a provider name share the same lock and last-call timestamp so
+    that the combined request rate never exceeds the provider's RPM limit.
     """
+
+    # Class-level per-provider throttle state shared across all instances.
+    # Keyed by provider; recreated when the event loop changes (e.g. between tests).
+    _provider_locks:     dict[str, asyncio.Lock]                    = {}
+    _provider_loops:     dict[str, asyncio.AbstractEventLoop | None] = {}
+    _provider_last_call: dict[str, float]                           = {}
+
+    @classmethod
+    def _get_provider_lock(cls, provider: str) -> asyncio.Lock:
+        try:
+            loop: asyncio.AbstractEventLoop | None = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if provider not in cls._provider_locks or cls._provider_loops.get(provider) is not loop:
+            cls._provider_locks[provider]     = asyncio.Lock()
+            cls._provider_loops[provider]     = loop
+            cls._provider_last_call[provider] = 0.0
+        return cls._provider_locks[provider]
 
     def __init__(self, rpm_limit: int | None = None, timeout: float | None = None,
                  max_retries: int | None = None, provider: str = "default",
@@ -48,13 +72,12 @@ class ApiGatekeeper:
         self._provider  = provider
         self._model     = model
         self._in_rate, self._out_rate = _load_pricing(provider, model)
-        self.rpm_limit        = rpm_limit   if rpm_limit   is not None else limits.get("rpm_limit",       30)
+        self.rpm_limit        = rpm_limit   if rpm_limit   is not None else limits.get("rpm_limit",       DEFAULT_RPM_LIMIT)
         self.timeout          = timeout     if timeout     is not None else limits.get("timeout_seconds", 60.0)
         self.max_retries      = max_retries if max_retries is not None else limits.get("max_retries",      3)
         self._retry_after     = limits.get("retry_after_seconds", 30)
         self.interval         = 60.0 / self.rpm_limit
-        self._last_call       = 0.0
-        self._rate_lock       = asyncio.Lock()
+        self._rate_lock       = self._get_provider_lock(provider)
         self._logger          = logging.getLogger("gatekeeper")
         self._call_count      = 0
         self.total_calls      = 0
@@ -93,10 +116,10 @@ class ApiGatekeeper:
 
     async def _throttle(self) -> None:
         async with self._rate_lock:
-            elapsed = time.monotonic() - self._last_call
+            elapsed = time.monotonic() - self._provider_last_call[self._provider]
             if elapsed < self.interval:
                 await asyncio.sleep(self.interval - elapsed)
-            self._last_call = time.monotonic()
+            self._provider_last_call[self._provider] = time.monotonic()
 
     def _log_structured(self, latency_ms: float, success: bool,
                         error: str | None, tokens_in: int = 0,

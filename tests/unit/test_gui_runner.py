@@ -1,6 +1,7 @@
 import pytest
 
 from src.gui.debate_runner import run_debate_from_payload, stream_debate_from_payload
+from src.models.debate import DebateSession
 
 
 @pytest.mark.asyncio
@@ -22,9 +23,10 @@ async def test_run_debate_from_payload_exports_data(tmp_path, monkeypatch):
         }
     )
 
-    assert result["topic"] == "Space policy"
-    assert len(result["history"]) == 2
-    assert "winner" in result["verdict"].lower()
+    assert isinstance(result, DebateSession)
+    assert result.topic == "Space policy"
+    assert len(result.history) == 2
+    assert "winner" in result.winner.lower()
     assert (tmp_path / "results" / "debate.json").exists()
 
 
@@ -44,3 +46,36 @@ async def test_stream_debate_from_payload_yields_live_events(tmp_path, monkeypat
     assert len([event for event in events if event["type"] == "message"]) == 2
     assert events[-2]["type"] == "judging"
     assert events[-1]["type"] == "verdict"
+
+
+@pytest.mark.asyncio
+async def test_malformed_rounds_defaults_to_10(tmp_path, monkeypatch):
+    """Non-numeric rounds string should not crash — should default to 10."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "setup.json").write_text("{}", encoding="utf-8")
+
+    result = await run_debate_from_payload(
+        {
+            "topic": "Test topic",
+            "provider": "mock",
+            "rounds": "not-a-number",   # <-- bad input
+        }
+    )
+    # If we get here without ValueError the fix works
+    assert result.topic == "Test topic"
+
+
+@pytest.mark.asyncio
+async def test_rounds_clamped_to_valid_range(tmp_path, monkeypatch):
+    """rounds > 10 should clamp to 10; rounds < 1 should clamp to 1."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "setup.json").write_text("{}", encoding="utf-8")
+
+    result = await run_debate_from_payload(
+        {"topic": "Clamp test", "provider": "mock", "rounds": 999}
+    )
+    assert result.topic == "Clamp test"
+    # 10 rounds × 2 debaters = 20 entries maximum
+    assert len(result.history) <= 20

@@ -184,3 +184,41 @@ async def test_manual_stop_halts_monitoring():
     await monitor
 
     assert wd._stop_evt.is_set()
+
+
+# ------------------------------------------------------------------
+# heartbeat staleness → restart
+# ------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_stale_heartbeat_cancels_and_restarts(caplog):
+    """
+    When an agent stops beating within the heartbeat threshold the watchdog
+    should cancel the hung task and trigger the restart path.
+    """
+    # Very tight threshold so the agent goes stale almost immediately
+    wd = WatchdogAgent(
+        max_failures=3,
+        poll_interval=0.05,
+        heartbeat_threshold=0.01,  # 10 ms — any non-beating agent is "stale"
+        backoff_base=0.0,
+    )
+    attempts: list[int] = []
+
+    async def hung_then_ok():
+        attempts.append(len(attempts) + 1)
+        if len(attempts) == 1:
+            # First run: never beat → appears stale → watchdog cancels us
+            await asyncio.sleep(9999)
+        # Second run: complete successfully
+        return
+
+    wd.register("worker", hung_then_ok, timeout=60.0)
+
+    with caplog.at_level(logging.WARNING, logger="watchdog"):
+        await wd.start()
+
+    assert len(attempts) >= 2, "Agent should have been restarted at least once"
+    assert any("heartbeat_cancel" in r.message for r in caplog.records), (
+        "Expected a heartbeat_cancel log event"
+    )

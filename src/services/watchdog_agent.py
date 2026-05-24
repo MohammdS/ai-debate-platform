@@ -29,6 +29,9 @@ class AgentRecord:
     task:     asyncio.Task | None = field(default=None, repr=False)
     status:   AgentStatus = AgentStatus.HEALTHY
     failures: int = 0
+    # Set to True when a stale-heartbeat restart has been requested but not
+    # yet processed by _handle_done, so we don't cancel the task repeatedly.
+    stale_restart_triggered: bool = False
 
 
 class WatchdogAgent:
@@ -84,8 +87,9 @@ class WatchdogAgent:
     def _launch(self, rec: AgentRecord) -> None:
         async def _guarded():
             await asyncio.wait_for(rec.factory(), timeout=rec.timeout)
-        rec.task   = asyncio.create_task(_guarded(), name=rec.name)
-        rec.status = AgentStatus.HEALTHY
+        rec.task                    = asyncio.create_task(_guarded(), name=rec.name)
+        rec.status                  = AgentStatus.HEALTHY
+        rec.stale_restart_triggered = False
         self._heartbeat.beat(rec.name)
         self._log_event("launched", rec.name, AgentStatus.HEALTHY)
 
@@ -114,6 +118,10 @@ class WatchdogAgent:
         if not self._heartbeat.is_alive(rec.name):
             ago = self._heartbeat.last_beat_ago(rec.name) or 0.0
             self._log_event("heartbeat_stale", rec.name, rec.status, idle_secs=ago)
+            if not rec.stale_restart_triggered and rec.task and not rec.task.done():
+                rec.stale_restart_triggered = True
+                self._log_event("heartbeat_cancel", rec.name, rec.status, idle_secs=ago)
+                rec.task.cancel()
 
     def _handle_done(self, rec: AgentRecord, exc: BaseException | None) -> None:
         if exc is None and not rec.task.cancelled():
@@ -163,6 +171,6 @@ class WatchdogAgent:
                   "agent": agent, "status": str(status), **extra}
         level = (logging.CRITICAL if event == "max_failures"
                  else logging.ERROR   if event in ("dead", "timeout")
-                 else logging.WARNING if event in ("restarting", "heartbeat_stale")
+                 else logging.WARNING if event in ("restarting", "heartbeat_stale", "heartbeat_cancel")
                  else logging.INFO)
         self._logger.log(level, "[watchdog] %s", json.dumps(record))

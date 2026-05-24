@@ -1,7 +1,9 @@
+import json
+
 import httpx
 
 from src.sdk.base_client import BaseAIClient
-from src.sdk.exceptions import ProviderHTTPError, ProviderTimeoutError, RateLimitError
+from src.sdk.exceptions import InvalidResponseError, ProviderHTTPError, ProviderTimeoutError, RateLimitError
 
 
 class GroqClient(BaseAIClient):
@@ -32,6 +34,9 @@ class GroqClient(BaseAIClient):
         if not response.is_success:
             raise ProviderHTTPError(response.status_code, response.text)
 
-        data = response.json()
+        try:
+            data = response.json()
+        except json.JSONDecodeError as exc:
+            raise InvalidResponseError(f"Groq returned invalid JSON: {response.text[:200]}") from exc
         self._store_usage(data)
         return self._validate_response_shape(data, ["choices", 0, "message", "content"])

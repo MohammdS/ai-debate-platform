@@ -17,8 +17,11 @@ class ConfigManager:
     def _load_json_config(self) -> dict:
         if not self.config_path.exists():
             return {}
-        with open(self.config_path) as f:
-            return json.load(f)
+        try:
+            with open(self.config_path) as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            return {}
 
     def get_api_key(self, provider: str) -> str:
         """Retrieves API key for a given provider from environment variables."""

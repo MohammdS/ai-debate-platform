@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from src.ipc.message import DebateMessage, MessageType
@@ -15,6 +16,9 @@ if TYPE_CHECKING:
 
 _cfg = ConfigManager()
 _MAX_WORDS: int = _cfg.get_value("debate", "judge_max_words", 200)
+# Maximum transcript entries sent to evaluate(); older middle entries are dropped
+# to stay within typical LLM context windows while preserving opening + closing arguments.
+_MAX_TRANSCRIPT_ENTRIES: int = _cfg.get_value("debate", "judge_max_transcript_entries", 20)
 
 _VALID_SIDES = {"pro", "contra", "debater_a", "debater_b", "a", "b"}
 
@@ -22,8 +26,10 @@ _VALID_SIDES = {"pro", "contra", "debater_a", "debater_b", "a", "b"}
 class Judge(BaseAgent):
     """Impartial judge — central IPC relay hub (father process)."""
 
-    def __init__(self, client: BaseAIClient, gatekeeper: ApiGatekeeper):
+    def __init__(self, client: BaseAIClient, gatekeeper: ApiGatekeeper,
+                 beat_fn: Callable[[], None] | None = None):
         super().__init__("judge", client, gatekeeper, role="judge")
+        self.beat_fn = beat_fn  # called after each relay round to signal liveness
         judge_cfg = get_agent_prompt("judge")
         criteria = "\n".join(
             f"- {k.replace('_', ' ').title()}: {v}"
@@ -44,6 +50,24 @@ class Judge(BaseAgent):
         self.outbox_b:      IpcChannel | None = None
         self.verdict_channel: IpcChannel | None = None
         self._skill_selector = SkillSelector([JudgeEvaluationSkill()])
+
+    def _truncate_transcript(self, transcript: list[dict]) -> list[dict]:
+        """Keep head + tail of long transcripts to avoid overflowing context windows."""
+        if len(transcript) <= _MAX_TRANSCRIPT_ENTRIES:
+            return transcript
+        head = 2  # always include opening arguments from both sides
+        tail = _MAX_TRANSCRIPT_ENTRIES - head
+        dropped = len(transcript) - _MAX_TRANSCRIPT_ENTRIES
+        self.logger.warning(
+            "[judge] transcript truncated: %d entries dropped (head=%d, tail=%d)",
+            dropped, head, tail,
+        )
+        ellipsis_entry = {
+            "role": "system",
+            "name": "system",
+            "content": f"[... {dropped} middle exchange(s) omitted for brevity ...]",
+        }
+        return transcript[:head] + [ellipsis_entry] + transcript[-tail:]
 
     def _build_judge_skill_guidance(self, transcript: list[dict]) -> str:
         ctx = SkillContext(
@@ -96,9 +120,9 @@ class Judge(BaseAgent):
 
     async def run(self, total_rounds: int = 10) -> None:  # type: ignore[override]
         """IPC mediator loop — relays A↔B, then evaluates and emits verdict."""
-        assert all([self.inbox_a, self.inbox_b, self.outbox_a,
-                    self.outbox_b, self.verdict_channel]), \
-            "All channels must be set before judge.run()"
+        if not all([self.inbox_a, self.inbox_b, self.outbox_a,
+                    self.outbox_b, self.verdict_channel]):
+            raise RuntimeError("All channels must be set before judge.run()")
         self.logger.info("[judge] IPC mediator process started")
         try:
             for round_num in range(1, total_rounds + 1):
@@ -132,12 +156,15 @@ class Judge(BaseAgent):
                     msg_type=MessageType.RELAY, sender="judge", receiver="debater_a",
                     payload=msg_b.payload, round_num=round_num,
                 ))
+                # Signal liveness to watchdog after each complete relay cycle
+                if self.beat_fn:
+                    self.beat_fn()
         finally:
             self.logger.info("[judge] evaluating transcript (%d entries)", len(self.transcript))
             if self.event_queue:
                 await self.event_queue.put({"type": "judging"})
             try:
-                verdict_text = await self.evaluate(self.transcript)
+                verdict_text = await self.evaluate(self._truncate_transcript(self.transcript))
             except Exception as exc:
                 self.logger.error("[judge] verdict API call failed: %s", exc)
                 verdict_text = f"Verdict unavailable — judge API error: {exc}"

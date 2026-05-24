@@ -16,7 +16,6 @@ from src.skills import (
     CitationSkill,
     EvidenceSkill,
     RebuttalSkill,
-    RetrieverSkill,
     SkillContext,
     SkillSelector,
     SocraticSkill,
@@ -27,7 +26,6 @@ from src.tools.web_search import WebSearchTool
 
 if TYPE_CHECKING:
     from src.ipc.channel import IpcChannel
-    from src.rag.rag_service import RAGService
 
 _cfg = ConfigManager()
 _MAX_WORDS: int = _cfg.get_value("debate", "debater_max_words", 120)
@@ -45,8 +43,7 @@ class Debater(BaseAgent):
                  client: BaseAIClient, gatekeeper: ApiGatekeeper,
                  skill: DebaterSkill = DebaterSkill.EVIDENCE_BASED,
                  search_tool: WebSearchTool | None = None,
-                 opponent_stance: str = "",
-                 rag_service: RAGService | None = None):
+                 opponent_stance: str = ""):
         super().__init__(name, client, gatekeeper, role="debater")
         self.stance = stance
         self.opponent_stance = opponent_stance
@@ -56,8 +53,7 @@ class Debater(BaseAgent):
         self.system_prompt = self._build_system_prompt()
         self.inbox:  IpcChannel | None = None
         self.outbox: IpcChannel | None = None
-        extra = [RetrieverSkill(rag_service)] if rag_service is not None else []
-        self._skill_selector = SkillSelector(_DEFAULT_SKILLS + extra)
+        self._skill_selector = SkillSelector(_DEFAULT_SKILLS)
 
     def _build_system_prompt(self) -> str:
         role_key = "pro" if self.skill == DebaterSkill.EVIDENCE_BASED else "contra"
@@ -120,7 +116,8 @@ class Debater(BaseAgent):
 
     async def run(self) -> None:
         """IPC process loop — blocks on inbox, responds to RELAY and SHUTDOWN."""
-        assert self.inbox and self.outbox, f"{self.name}: channels must be set before run()"
+        if not (self.inbox and self.outbox):
+            raise RuntimeError(f"{self.name}: channels must be set before run()")
         history: list[dict] = []
         self.logger.info(f"[{self.name}] IPC process started (skill={self.skill})")
         while True:

@@ -4,8 +4,6 @@ import argparse
 import asyncio
 import sys
 
-from src.rag.models import RAGConfig
-from src.rag.rag_service import RAGService
 from src.sdk.llm_service import LLMService
 from src.services.base_agent import DebaterSkill
 from src.services.debater import Debater
@@ -15,6 +13,7 @@ from src.services.orchestrator import DebateOrchestrator
 from src.services.watchdog_agent import WatchdogAgent
 from src.shared.gatekeeper import ApiGatekeeper
 from src.shared.logger import setup_logger
+from src.shared.version import VERSION
 
 logger = setup_logger("main")
 
@@ -85,27 +84,12 @@ def _interactive_menu() -> dict:
 # ---------------------------------------------------------------------------
 
 async def run_debate(topic: str, stance_a: str, stance_b: str,
-                     provider_a: str = "zai", provider_b: str = "groq",
-                     use_rag: bool = False, rebuild_index: bool = False,
-                     top_k: int = 3, knowledge_dir: str = "knowledge",
-                     vector_db_path: str = ".chroma_db") -> None:
+                     provider_a: str = "zai", provider_b: str = "groq") -> None:
     service = LLMService(role_overrides={
         "debater_a": provider_a,
         "debater_b": provider_b,
         "judge": "groq",
     })
-
-    rag_service: RAGService | None = None
-    if use_rag:
-        cfg = RAGConfig(knowledge_dir=knowledge_dir, vector_db_path=vector_db_path, top_k=top_k)
-        rag_service = RAGService(cfg)
-        ok = rag_service.initialise(rebuild=rebuild_index)
-        if not ok:
-            print(f"[INFO] No local knowledge files — searching web for: {topic}")
-            ok = await rag_service.initialise_from_web(topic, rebuild=rebuild_index)
-        if not ok:
-            print("[WARN] RAG disabled — no documents indexed.")
-            rag_service = None
 
     gk_a = service.get_gatekeeper("debater_a")
     gk_b = service.get_gatekeeper("debater_b")
@@ -114,24 +98,25 @@ async def run_debate(topic: str, stance_a: str, stance_b: str,
     debater_a = Debater("Pro", stance_a, topic,
                         service.get_client("debater_a"), gk_a,
                         skill=DebaterSkill.EVIDENCE_BASED,
-                        opponent_stance=stance_b,
-                        rag_service=rag_service)
+                        opponent_stance=stance_b)
     debater_b = Debater("Contra", stance_b, topic,
                         service.get_client("debater_b"), gk_b,
                         skill=DebaterSkill.SOCRATIC,
-                        opponent_stance=stance_a,
-                        rag_service=rag_service)
+                        opponent_stance=stance_a)
     judge = Judge(service.get_client("judge"), gk_j)
 
     print("\n[INFO] Starting debate...\n")
-    orchestrator = DebateOrchestrator(debater_a, debater_b, judge)
+    watchdog = WatchdogAgent(max_failures=3, poll_interval=5.0)
+    orchestrator = DebateOrchestrator(
+        debater_a, debater_b, judge,
+        beat_fn=lambda: watchdog.beat("debate"),
+    )
     verdict_box: list[str] = []
 
     async def _run_and_capture():
         v = await orchestrator.run_debate()
         verdict_box.append(v)
 
-    watchdog = WatchdogAgent(max_failures=3, poll_interval=5.0)
     watchdog.register("debate", _run_and_capture, timeout=600.0)
     await watchdog.start()
 
@@ -172,23 +157,14 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="Run without arguments to launch the interactive menu.",
     )
-    parser.add_argument("--topic",          default=None)
-    parser.add_argument("--stance-a",       default=None,     dest="stance_a")
-    parser.add_argument("--stance-b",       default=None,     dest="stance_b")
-    parser.add_argument("--provider-a",     default="zai",    dest="provider_a",
+    parser.add_argument("--version", action="version", version=f"ai-debate-platform {VERSION}")
+    parser.add_argument("--topic",      default=None)
+    parser.add_argument("--stance-a",   default=None,  dest="stance_a")
+    parser.add_argument("--stance-b",   default=None,  dest="stance_b")
+    parser.add_argument("--provider-a", default="zai", dest="provider_a",
                         help="groq | gemini | openai | zai | mock")
-    parser.add_argument("--provider-b",     default="groq",   dest="provider_b",
+    parser.add_argument("--provider-b", default="groq", dest="provider_b",
                         help="groq | gemini | openai | zai | mock")
-    parser.add_argument("--rag",            action="store_true",
-                        help="Enable Retrieval-Augmented Generation")
-    parser.add_argument("--rebuild-index",  action="store_true", dest="rebuild_index",
-                        help="Force rebuild of the vector index")
-    parser.add_argument("--top-k",          default=3,        type=int, dest="top_k",
-                        help="Number of passages to retrieve per turn")
-    parser.add_argument("--knowledge-dir",  default="knowledge", dest="knowledge_dir",
-                        help="Directory containing knowledge documents")
-    parser.add_argument("--vector-db-path", default=".chroma_db", dest="vector_db_path",
-                        help="Path for the Chroma vector store")
     args = parser.parse_args()
 
     if not args.topic or not args.stance_a or not args.stance_b:
@@ -199,11 +175,6 @@ def main() -> None:
             "provider_a": args.provider_a, "provider_b": args.provider_b,
         }
 
-    params.update({
-        "use_rag": args.rag, "rebuild_index": args.rebuild_index,
-        "top_k": args.top_k, "knowledge_dir": args.knowledge_dir,
-        "vector_db_path": args.vector_db_path,
-    })
     asyncio.run(run_debate(**params))
 
 

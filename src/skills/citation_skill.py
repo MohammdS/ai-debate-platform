@@ -10,10 +10,12 @@ class CitationSkill(BaseSkill):
         return True
 
     def run(self, context: SkillContext) -> SkillResult:
-        content = (
-            "If citing facts, name the source. "
-            "If opponent made uncited claims, challenge them."
+        challenge = (
+            f" Opponent stated: '{context.opponent_last_message[:60].strip()}' — "
+            "demand they name their source if it lacks one."
+            if context.opponent_last_message else ""
         )
+        content = f"Name your source for every factual claim you make.{challenge}"
         return SkillResult(
             skill_name=self.name,
             selected=True,

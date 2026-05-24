@@ -130,3 +130,52 @@ def test_judge_evaluation_skill_content_forbids_tie():
     result = skill.run(ctx)
     lower = result.content.lower()
     assert "tie" in lower or "winner" in lower
+
+
+# 13 — SummarizationSkill.run() coverage (the 50% uncovered branch)
+def test_summarization_run_outputs_recent_entries():
+    skill = SummarizationSkill()
+    transcript = [
+        {"name": "Debater_A", "content": "AI is beneficial to society"},
+        {"name": "Debater_B", "content": "AI poses existential risks"},
+        {"name": "Debater_A", "content": "The benefits outweigh the risks"},
+        {"name": "Debater_B", "content": "No evidence for that claim"},
+    ]
+    ctx = make_ctx(transcript=transcript)
+    result = skill.run(ctx)
+    assert result.selected is True
+    assert "Debater_A" in result.content or "Debater_B" in result.content
+    assert "AI is beneficial" in result.content  # last 4 entries included
+    assert result.skill_name == "summarization"
+
+
+# 14 — EvidenceSkill injects topic into guidance
+def test_evidence_skill_includes_topic_in_content():
+    skill = EvidenceSkill()
+    ctx = make_ctx(topic="climate change", skill_type="evidence_based")
+    result = skill.run(ctx)
+    assert "climate change" in result.content
+
+
+# 15 — SocraticSkill targets opponent's specific claim
+def test_socratic_skill_includes_opponent_claim():
+    skill = SocraticSkill()
+    ctx = make_ctx(skill_type="socratic", opponent_last_message="AI will never be conscious")
+    result = skill.run(ctx)
+    assert "AI will never be conscious" in result.content
+
+
+# 16 — CitationSkill includes opponent claim excerpt when present
+def test_citation_skill_includes_opponent_when_present():
+    skill = CitationSkill()
+    ctx = make_ctx(opponent_last_message="Studies show 90% of jobs will be automated")
+    result = skill.run(ctx)
+    assert "Studies show" in result.content
+
+
+def test_citation_skill_no_opponent_is_generic():
+    skill = CitationSkill()
+    ctx = make_ctx(opponent_last_message="")
+    result = skill.run(ctx)
+    assert result.selected is True
+    assert "source" in result.content.lower()

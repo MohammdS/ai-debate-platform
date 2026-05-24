@@ -4,7 +4,6 @@ from src.skills.evidence_skill import EvidenceSkill
 from src.skills.judge_evaluation_skill import JudgeEvaluationSkill
 from src.skills.models import SkillContext, SkillResult
 from src.skills.rebuttal_skill import RebuttalSkill
-from src.skills.retriever_skill import RetrieverSkill
 from src.skills.skill_selector import SkillSelector
 from src.skills.socratic_skill import SocraticSkill
 from src.skills.summarization_skill import SummarizationSkill
@@ -22,5 +21,4 @@ __all__ = [
     "CitationSkill",
     "ToneModerationSkill",
     "JudgeEvaluationSkill",
-    "RetrieverSkill",
 ]

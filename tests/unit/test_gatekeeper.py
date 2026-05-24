@@ -303,3 +303,27 @@ def test_load_pricing_unknown_provider_uses_global_default():
     in_rate, out_rate = _load_pricing("unknown_provider", "unknown_model")
     assert in_rate  == pytest.approx(0.10)
     assert out_rate == pytest.approx(0.10)
+
+
+# --- provider lock (new-loop path) ---
+
+@pytest.mark.asyncio
+async def test_provider_lock_recreated_for_new_event_loop():
+    """
+    _get_provider_lock must return a lock bound to the *current* event loop.
+    When two tests run with separate loops the lock must be recreated, not reused.
+    """
+    provider = "_test_loop_isolation_provider_"
+    # Clear any stale state from a previous test run
+    ApiGatekeeper._provider_locks.pop(provider, None)
+    ApiGatekeeper._provider_loops.pop(provider, None)
+
+    lock1 = ApiGatekeeper._get_provider_lock(provider)
+    assert isinstance(lock1, asyncio.Lock)
+
+    # Simulate a different event loop by manually overriding the stored loop
+    ApiGatekeeper._provider_loops[provider] = None  # pretend old loop was None
+
+    lock2 = ApiGatekeeper._get_provider_lock(provider)
+    # Must have been recreated since the stored loop no longer matches
+    assert lock2 is not lock1

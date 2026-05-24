@@ -1,5 +1,7 @@
 import asyncio
+from collections.abc import Callable
 
+from src.shared.constants import MAX_ROUNDS
 from src.ipc.channel import IpcChannel
 from src.ipc.message import DebateMessage, MessageType
 from src.services.debater import Debater
@@ -21,13 +23,16 @@ class DebateOrchestrator:
     """
 
     def __init__(self, debater_a: Debater, debater_b: Debater,
-                 judge: Judge, rounds: int | None = None):
+                 judge: Judge, rounds: int | None = None,
+                 beat_fn: Callable[[], None] | None = None):
         self.debater_a = debater_a
         self.debater_b = debater_b
         self.judge = judge
-        self.rounds = rounds if rounds is not None else ConfigManager().get_value("debate", "total_rounds", 10)
+        self.rounds = rounds if rounds is not None else ConfigManager().get_value("debate", "total_rounds", MAX_ROUNDS)
         self.history: list[dict] = []
         self.logger = setup_logger()
+        if beat_fn:
+            self.judge.beat_fn = beat_fn
 
     def _wire_channels(self, timeout: float = 120.0) -> IpcChannel:
         """Create all IPC channels and assign them to the three agents."""
