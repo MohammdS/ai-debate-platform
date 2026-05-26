@@ -8,3 +8,4 @@ results/
 data/
 *.log
 uv.lock
+docs/AUDIT_REPORT.md

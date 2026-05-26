@@ -16,7 +16,8 @@ class GroqClient(BaseAIClient):
         payload = {
             "model": self.model_name,
             "messages": messages,
-            "temperature": 0.7,
+            "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
         }
 
         async with httpx.AsyncClient(timeout=60.0) as client:

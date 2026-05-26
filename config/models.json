@@ -1,0 +1,14 @@
+{
+  "debater_a": {
+    "provider": "zai"
+  },
+  "debater_b": {
+    "provider": "groq"
+  },
+  "judge": {
+    "provider": "groq"
+  },
+  "default": {
+    "provider": "groq"
+  }
+}

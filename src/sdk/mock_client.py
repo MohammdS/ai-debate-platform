@@ -11,13 +11,22 @@ class MockAIClient(BaseAIClient):
         last_msg = messages[-1].get("content", "")
         round_num = (len(messages) // 2) + 1
 
-        if "impartial judge" in system_msg.lower():
-            return "Based on the 20 rounds of intense debate, I declare Debater A the winner. Score: 85-75."
+        if "impartial judge" in system_msg.lower() or "strict, impartial debate judge" in system_msg.lower():
+            return (
+                "SCORES\n"
+                "Pro   — Logic: 16/20 | Evidence: 17/20 | Rebuttal Quality: 15/20 | Relevance: 18/20 | Clarity: 16/20 | TOTAL: 82/100\n"
+                "Contra — Logic: 14/20 | Evidence: 13/20 | Rebuttal Quality: 14/20 | Relevance: 15/20 | Clarity: 14/20 | TOTAL: 70/100\n\n"
+                "WINNER: Pro\n"
+                "REASONING: Pro consistently backed claims with verifiable data and directly rebutted "
+                "every point raised by Contra. Contra relied on rhetorical questions without sufficient "
+                "factual grounding, which cost them heavily on evidence and rebuttal quality."
+            )
 
+        role = "PRO" if "PRO debater" in system_msg else "CONTRA"
         return (
-            f"Round {round_num}: I stand firmly by my position. "
-            f"Regarding your last point: '{last_msg[:30]}...', "
-            "it fails to address the core logical necessity of my stance. "
-            "I seek victory and will not concede."
+            f"[{role} | Round {round_num}] "
+            f"Your claim — '{last_msg[:40]}...' — is factually weak and logically flawed. "
+            "The evidence overwhelmingly supports my position and I will not concede this point. "
+            "My stance stands."
         )
 

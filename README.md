@@ -14,8 +14,8 @@ A professional Python-based platform for structured, competitive AI debates.
 This project uses `uv` for package management.
 
 ```bash
-# Install uv if you haven't
-npm install -g @astral-sh/uv # or other methods
+# Install uv if you haven't (macOS/Linux)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Sync dependencies
 uv sync
@@ -37,10 +37,17 @@ Free-tier testing options:
 uv run python -m src.main --topic "Artificial General Intelligence" --stance-a "AGI is a risk" --stance-b "AGI is a benefit"
 ```
 
-Run with a free-tier provider:
+Run with specific providers per debater:
 
 ```bash
-uv run python -m src.main --provider groq --topic "AI in schools" --stance-a "AI should be allowed" --stance-b "AI should be restricted"
+uv run python -m src.main --topic "AI in schools" --stance-a "AI should be allowed" --stance-b "AI should be restricted" --provider-a groq --provider-b zai
+```
+
+Run the GUI:
+
+```bash
+uv run python -m src.gui.server
+# then open http://127.0.0.1:8000
 ```
 
 ## Testing
@@ -51,10 +58,12 @@ uv run python -m pytest --cov=src
 ```
 
 ## Documentation
-- [PRD](docs/initial%20setup/PRD.md)
-- [Plan](docs/initial%20setup/PLAN.md)
-- [Task List](docs/initial%20setup/TODO.md)
-- [Prompts](docs/initial%20setup/PROMPTS.md)
+- [PRD](docs/PRD.md)
+- [Plan](docs/PLAN.md)
+- [Task List](docs/TODO.md)
+- [IPC Design](docs/PRD_ipc.md)
+- [Gatekeeper Design](docs/PRD_gatekeeper.md)
+- [Watchdog Design](docs/PRD_watchdog.md)
 
 ## License
 MIT
