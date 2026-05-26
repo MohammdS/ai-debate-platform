@@ -1,0 +1,31 @@
+{
+  "_comment": "Cost in USD per 1,000,000 tokens (input / output) per provider+model.",
+  "groq": {
+    "llama-3.1-8b-instant":   { "input_per_1m": 0.05,  "output_per_1m": 0.08  },
+    "llama-3.3-70b-versatile":{ "input_per_1m": 0.59,  "output_per_1m": 0.79  },
+    "mixtral-8x7b-32768":     { "input_per_1m": 0.24,  "output_per_1m": 0.24  },
+    "default":                { "input_per_1m": 0.10,  "output_per_1m": 0.10  }
+  },
+  "gemini": {
+    "gemini-2.5-flash":       { "input_per_1m": 0.075, "output_per_1m": 0.30  },
+    "gemini-1.5-pro":         { "input_per_1m": 3.50,  "output_per_1m": 10.50 },
+    "default":                { "input_per_1m": 0.075, "output_per_1m": 0.30  }
+  },
+  "openai": {
+    "gpt-4o":                 { "input_per_1m": 2.50,  "output_per_1m": 10.00 },
+    "gpt-4o-mini":            { "input_per_1m": 0.15,  "output_per_1m": 0.60  },
+    "gpt-3.5-turbo":          { "input_per_1m": 0.50,  "output_per_1m": 1.50  },
+    "default":                { "input_per_1m": 0.50,  "output_per_1m": 1.50  }
+  },
+  "openrouter": {
+    "openai/gpt-oss-120b:free": { "input_per_1m": 0.00, "output_per_1m": 0.00 },
+    "default":                  { "input_per_1m": 0.00, "output_per_1m": 0.00 }
+  },
+  "zai": {
+    "default":                { "input_per_1m": 0.10,  "output_per_1m": 0.10  }
+  },
+  "mock": {
+    "default":                { "input_per_1m": 0.00,  "output_per_1m": 0.00  }
+  },
+  "default":                  { "input_per_1m": 0.10,  "output_per_1m": 0.10  }
+}

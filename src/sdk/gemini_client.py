@@ -1,12 +1,20 @@
+import json
+
 import httpx
 
 from src.sdk.base_client import BaseAIClient
+from src.sdk.exceptions import (
+    InvalidResponseError,
+    ProviderHTTPError,
+    ProviderTimeoutError,
+    RateLimitError,
+)
 
 
 class GeminiClient(BaseAIClient):
     """Client for the Gemini Developer API."""
 
-    async def generate_response(self, messages: list[dict[str, str]]) -> str:
+    async def generate_response(self, messages: list[dict]) -> str:
         """Sends a generateContent request to Gemini."""
         url = self._url()
         payload = {
@@ -18,21 +26,38 @@ class GeminiClient(BaseAIClient):
             },
         }
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(url, json=payload)
-            response.raise_for_status()
+        try:
+            async with httpx.AsyncClient(timeout=self.http_timeout) as client:
+                response = await client.post(url, json=payload)
+        except httpx.TimeoutException as exc:
+            raise ProviderTimeoutError("Gemini request timed out") from exc
+
+        if response.status_code == 429:
+            raise RateLimitError(f"Gemini rate limit exceeded: {response.text[:200]}")
+        if not response.is_success:
+            raise ProviderHTTPError(response.status_code, response.text)
+
+        try:
             data = response.json()
-            return data["candidates"][0]["content"]["parts"][0]["text"]
+        except json.JSONDecodeError as exc:
+            raise InvalidResponseError(f"Gemini returned invalid JSON: {response.text[:200]}") from exc
+        self._store_gemini_usage(data)
+        return self._validate_response_shape(
+            data, ["candidates", 0, "content", "parts", 0, "text"]
+        )
 
     def _url(self) -> str:
         model = self.model_name
-        return f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
+        return (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{model}:generateContent?key={self.api_key}"
+        )
 
-    def _system_instruction(self, messages: list[dict[str, str]]) -> dict:
+    def _system_instruction(self, messages: list[dict]) -> dict:
         text = "\n".join(m["content"] for m in messages if m["role"] == "system")
         return {"parts": [{"text": text}]}
 
-    def _contents(self, messages: list[dict[str, str]]) -> list[dict]:
+    def _contents(self, messages: list[dict]) -> list[dict]:
         contents = []
         for message in messages:
             if message["role"] == "system":

@@ -1,14 +1,17 @@
+"""Domain models for debate sessions and messages."""
+from __future__ import annotations
 
 from pydantic import BaseModel
 
 
 class Message(BaseModel):
-    """Represents a single message in the debate."""
+    """A single turn in the debate transcript."""
     role: str
     content: str
 
+
 class DebateSession(BaseModel):
-    """Represents the entire state of a debate."""
+    """Full state of one debate: topic, stances, history, and outcome."""
     topic: str
     stance_a: str
     stance_b: str

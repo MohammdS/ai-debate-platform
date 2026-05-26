@@ -78,6 +78,7 @@ function render(data) {
   verdictTopic.textContent = topic ? `Topic: ${topic}` : "Topic will appear here after a debate starts.";
   verdict.textContent = cleanText(data.verdict) || "Run a debate to generate the judge's verdict.";
   count.textContent = `${history.length} message${history.length === 1 ? "" : "s"}`;
+  renderTokenStats(data.token_stats || null);
   messages.innerHTML = "";
 
   if (history.length === 0) {

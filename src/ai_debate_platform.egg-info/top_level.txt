@@ -1,9 +1,0 @@
-__init__
-gui
-ipc
-main
-models
-sdk
-services
-shared
-tools
