@@ -87,6 +87,11 @@ async def run_debate(
     exporter = DebateExporter()
     exporter.export_to_markdown(topic, orchestrator.history, verdict, token_stats=token_stats)
     exporter.export_to_json(topic, orchestrator.history, verdict, token_stats=token_stats)
+    exporter.export_skill_log(
+        topic,
+        debater_a.skill_log, f"Pro ({debater_a.stance})",
+        debater_b.skill_log, f"Contra ({debater_b.stance})",
+    )
 
     print("\n" + "=" * 60)
     print("VERDICT")

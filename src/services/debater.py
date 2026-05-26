@@ -63,6 +63,7 @@ class Debater(DebaterIpcMixin, BaseAgent):
             build_skill_pool(_cfg.get_value("skills", "debater_pool", _DEFAULT_POOL)),
             debater_name=self.name,
         )
+        self.skill_log: list[dict] = []
 
     def _build_system_prompt(self) -> str:
         # Core professional, domain-neutral system prompt
@@ -105,6 +106,7 @@ class Debater(DebaterIpcMixin, BaseAgent):
             if result.metadata.get("source_challenge"):
                 self._challenge_limiter.record_challenge()
         selected_names = [r.skill_name for r in results if r.selected]
+        self.skill_log.append({"turn": len(self.skill_log) + 1, "round": round_num, "skills": selected_names})
         self.logger.info("[%s] r%d skills: %s", self.name, round_num, selected_names or "(none)")
         parts = [r.content for r in results if r.selected and r.content]
         skill_guidance = ("\n\nSKILL GUIDANCE:\n" + "\n\n".join(parts)) if parts else ""
