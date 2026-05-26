@@ -20,14 +20,86 @@ from src.shared.version import VERSION
 logger = setup_logger("main")
 _cfg = ConfigManager()
 
+PROVIDERS = ["groq", "gemini", "openai", "zai", "mock"]
+
+# ---------------------------------------------------------------------------
+# Menu helpers
+# ---------------------------------------------------------------------------
+
+def _print_banner() -> None:
+    print("\n" + "=" * 60)
+    print("          AI DEBATE PLATFORM — Interactive Menu")
+    print("=" * 60 + "\n")
+
+
+def _ask(prompt: str, default: str = "") -> str:
+    """Prompt the user; return default if they press Enter."""
+    suffix = f" [{default}]" if default else ""
+    try:
+        value = input(f"{prompt}{suffix}: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\nAborted.")
+        sys.exit(0)
+    return value if value else default
+
+
+def _choose_topic() -> str:
+    return _ask("Debate topic")
+
+
+def _choose_debater_provider(label: str, default_idx: int = 1) -> str:
+    print(f"\nSelect provider for {label}:")
+    for i, p in enumerate(PROVIDERS, 1):
+        print(f"  {i}. {p}")
+    choice = _ask("Choice", str(default_idx))
+    try:
+        idx = int(choice) - 1
+        if 0 <= idx < len(PROVIDERS):
+            return PROVIDERS[idx]
+    except ValueError:
+        pass
+    return PROVIDERS[default_idx - 1]
+
+
+def _interactive_menu() -> dict:
+    _print_banner()
+
+    topic = _choose_topic()
+    if not topic:
+        print("Topic cannot be empty. Aborted.")
+        sys.exit(1)
+
+    stance_a = _ask("\nStance for Debater A", "Yes, strongly agree")
+    stance_b = _ask("Stance for Debater B", "No, strongly disagree")
+
+    provider_a = _choose_debater_provider("Debater A", default_idx=4)  # zai
+    provider_b = _choose_debater_provider("Debater B", default_idx=1)  # groq
+    judge_provider = _choose_debater_provider("Judge", default_idx=1)  # groq
+
+    print("\n" + "-" * 60)
+    print(f"  Topic    : {topic}")
+    print(f"  Debater A: {stance_a}  [{provider_a}]")
+    print(f"  Debater B: {stance_b}  [{provider_b}]")
+    print(f"  Judge    : {judge_provider}")
+    print("-" * 60)
+
+    confirm = _ask("\nStart debate? (y/n)", "y").lower()
+    if confirm not in ("y", "yes", ""):
+        print("Cancelled.")
+        sys.exit(0)
+
+    return {"topic": topic, "stance_a": stance_a, "stance_b": stance_b,
+            "provider_a": provider_a, "provider_b": provider_b,
+            "judge_provider": judge_provider}
+
+
+# ---------------------------------------------------------------------------
+# Debate runner
+# ---------------------------------------------------------------------------
 
 async def run_debate(topic: str, stance_a: str, stance_b: str,
-                     provider_a: str | None = None,
-                     provider_b: str | None = None) -> None:
-    provider_a = provider_a or _cfg.default_provider_a
-    provider_b = provider_b or _cfg.default_provider_b
-    judge_provider = _cfg.default_judge_provider
-
+                     provider_a: str = "zai", provider_b: str = "groq",
+                     judge_provider: str = "groq") -> None:
     service = LLMService(role_overrides={
         "debater_a": provider_a,
         "debater_b": provider_b,
@@ -106,16 +178,27 @@ def main() -> None:
     parser.add_argument("--topic",      default=None)
     parser.add_argument("--stance-a",   default=None, dest="stance_a")
     parser.add_argument("--stance-b",   default=None, dest="stance_b")
-    parser.add_argument("--provider-a", default=None, dest="provider_a",
-                        help="groq | gemini | openai | zai | mock  (default from config)")
-    parser.add_argument("--provider-b", default=None, dest="provider_b",
-                        help="groq | gemini | openai | zai | mock  (default from config)")
+    parser.add_argument("--provider-a", default="zai",  dest="provider_a",
+                        help="groq | gemini | openai | zai | mock")
+    parser.add_argument("--provider-b", default="groq", dest="provider_b",
+                        help="groq | gemini | openai | zai | mock")
+    parser.add_argument("--judge-provider", default="groq", dest="judge_provider",
+                        help="groq | gemini | openai | zai | mock")
     args = parser.parse_args()
 
-    params = interactive_menu() if not (args.topic and args.stance_a and args.stance_b) else {
-        "topic": args.topic, "stance_a": args.stance_a, "stance_b": args.stance_b,
-        "provider_a": args.provider_a, "provider_b": args.provider_b,
-    }
+    # If any required arg is missing, launch interactive menu
+    if not args.topic or not args.stance_a or not args.stance_b:
+        params = _interactive_menu()
+    else:
+        params = {
+            "topic":      args.topic,
+            "stance_a":   args.stance_a,
+            "stance_b":   args.stance_b,
+            "provider_a": args.provider_a,
+            "provider_b": args.provider_b,
+            "judge_provider": args.judge_provider,
+        }
+
     asyncio.run(run_debate(**params))
 
 

@@ -8,12 +8,24 @@
 </head>
 <body>
   <main class="shell">
-    <section class="hero">
+    <header class="topbar">
       <div>
         <p class="eyebrow">AI Debate Platform</p>
-        <h1 id="debate-title">Loading debate...</h1>
+        <h1 id="debate-title">AI Debate Platform</h1>
       </div>
+      <label class="theme-switch" for="theme-toggle">
+        <input id="theme-toggle" type="checkbox" aria-label="Toggle night mode">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span>Night mode</span>
+      </label>
+    </header>
+
+    <section class="hero">
       <form id="debate-form" class="panel">
+        <div class="panel-head">
+          <h2>Debate Setup</h2>
+          <span id="judge-note">Judge model from setup.json</span>
+        </div>
         <label>Topic<input name="topic" placeholder="Is AI a threat?"></label>
         <div class="grid">
           <label>Debater A<input name="stance_a" placeholder="AI is a significant threat"></label>
@@ -40,8 +52,16 @@
               <option value="mock">Mock</option>
             </select>
           </label>
+          <label>Judge Provider
+            <select name="judge_provider">
+              <option value="groq">Groq</option>
+              <option value="zai">Z.ai</option>
+              <option value="gemini">Gemini</option>
+              <option value="openai">OpenAI</option>
+              <option value="mock">Mock</option>
+            </select>
+          </label>
         </div>
-        <p class="judge-note">Judge: Groq (fixed)</p>
         <label>Rounds<input name="rounds" type="number" min="1" max="10" value="10"></label>
         <button id="run-button" type="submit">Run Debate</button>
       </form>
@@ -49,7 +69,9 @@
 
     <section class="layout">
       <aside class="verdict">
-        <p class="eyebrow">Judge Verdict</p>
+        <p class="eyebrow">Judge's Verdict</p>
+        <p id="verdict-topic" class="topic-line">Topic will appear here after a debate starts.</p>
+        <h2 id="judge-model">Judge model pending</h2>
         <p id="verdict-text">No verdict loaded yet.</p>
         <details id="token-details" style="margin-top:1rem;font-size:0.85rem;" hidden>
           <summary style="cursor:pointer;font-weight:600;">Token Usage</summary>
@@ -58,7 +80,11 @@
       </aside>
       <section class="transcript" aria-label="Debate transcript">
         <div class="section-head">
-          <h2>Transcript</h2>
+          <div>
+            <h2>Live Transcript</h2>
+            <p id="transcript-topic" class="topic-line">Topic will appear here after a debate starts.</p>
+            <div id="model-summary" class="model-summary"></div>
+          </div>
           <span id="message-count">0 messages</span>
         </div>
         <div id="messages" class="messages"></div>

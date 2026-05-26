@@ -33,17 +33,21 @@ class DebateExporter:
     # ------------------------------------------------------------------
 
     def export_to_markdown(
-        self,
-        topic: str,
-        history: list[dict[str, str]],
-        verdict: str,
-        token_stats: dict | None = None,
-        filename: str = "debate_transcript.md",
+        self, topic: str, history: list[dict[str, str]], verdict: str,
+        filename: str = "debate_transcript.md", model_info: dict | None = None
     ):
         """Saves the debate history as a Markdown file."""
         file_path = self.results_dir / filename
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(f"# Debate Transcript: {topic}\n\n")
+            if model_info:
+                f.write("## Models\n")
+                for role in ("debater_a", "debater_b", "judge"):
+                    item = model_info.get(role, {})
+                    label = item.get("label", role)
+                    display = item.get("display", item.get("model", "Unknown"))
+                    f.write(f"- {label}: {display}\n")
+                f.write("\n")
             for msg in history:
                 name = msg.get("name", msg.get("role", "Unknown"))
                 f.write(f"### {name}\n{msg['content']}\n\n---\n\n")
@@ -57,18 +61,15 @@ class DebateExporter:
         return file_path
 
     def export_to_json(
-        self,
-        topic: str,
-        history: list[dict[str, str]],
-        verdict: str,
-        token_stats: dict | None = None,
-        filename: str = "debate.json",
+        self, topic: str, history: list[dict[str, str]], verdict: str,
+        filename: str = "debate.json", model_info: dict | None = None
     ):
         """Saves the debate as a JSON file."""
         data: dict = {
             "topic":   topic,
             "history": history,
             "verdict": verdict,
+            "model_info": model_info or {},
         }
         if token_stats:
             data["token_stats"] = token_stats
