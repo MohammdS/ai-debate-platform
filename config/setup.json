@@ -1,28 +1,58 @@
 {
   "api": {
     "openai_model": "gpt-4",
+    "openrouter_model": "openai/gpt-oss-120b:free",
     "anthropic_model": "claude-3-opus-20240229",
     "gemini_model": "gemini-2.5-flash",
     "groq_model": "llama-3.1-8b-instant",
-    "zai_model": "glm-4.5-flash",
+    "zai_model": "glm-4.7-flash",
     "rate_limit_rpm": 30,
-    "timeout_seconds": 60.0
+    "http_timeout_seconds": 60.0,
+    "stream_event_timeout_seconds": 120.0
   },
   "debate": {
     "total_rounds": 10,
-    "debater_max_tokens": 512,
-    "judge_max_tokens": 768,
+    "debater_max_tokens": 160,
+    "judge_max_tokens": 400,
     "temperature": 0.7,
-    "debater_max_words": 120,
-    "judge_max_words": 200
+    "debater_max_words": 90,
+    "judge_max_words": 200,
+    "judge_max_transcript_entries": 20
+  },
+  "defaults": {
+    "provider_a": "zai",
+    "provider_b": "groq",
+    "judge_provider": "groq"
   },
   "logs": {
     "log_dir": "logs",
     "max_lines_per_file": 500,
     "max_files": 20
   },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8000
+  },
   "watchdog": {
     "timeout_seconds": 600.0,
-    "max_retries": 3
+    "max_failures": 3,
+    "poll_interval_seconds": 5.0
+  },
+  "skills": {
+    "summarization_min_transcript_entries": 4,
+    "summarization_snippet_chars": 80,
+    "debater_a_skill": "evidence_based",
+    "debater_b_skill": "socratic",
+    "log_skills_in_transcript": false,
+    "debater_pool": [
+      "RepetitionGuardSkill",
+      "RebuttalSkill",
+      "ProgressionSkill",
+      "EvidenceSkill",
+      "SocraticSkill",
+      "SummarizationSkill",
+      "CitationSkill",
+      "ToneModerationSkill"
+    ]
   }
 }

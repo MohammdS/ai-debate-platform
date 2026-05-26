@@ -8,6 +8,10 @@
   "judge": {
     "provider": "groq"
   },
+  "openrouter": {
+    "provider": "openrouter",
+    "model": "openai/gpt-oss-120b:free"
+  },
   "default": {
     "provider": "groq"
   }

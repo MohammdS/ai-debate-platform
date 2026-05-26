@@ -1,11 +1,17 @@
 import asyncio
 import json
 import re
+import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
 from src.gui.debate_runner import run_debate_from_payload, stream_debate_from_payload
+from src.shared.config import ConfigManager
+
+# Allows only one debate to run at a time; prevents resource exhaustion when
+# multiple browser tabs POST simultaneously.
+_debate_semaphore = threading.Semaphore(1)
 
 ROOT = Path(__file__).resolve().parents[2]
 GUI_DIR = ROOT / "gui"
@@ -37,21 +43,35 @@ class DebateGuiHandler(SimpleHTTPRequestHandler):
         self.send_error(404)
 
     def _run_debate(self):
+        if not _debate_semaphore.acquire(blocking=False):
+            self._send_json({"error": "A debate is already running. Please wait."}, status=503)
+            return
         try:
             payload = self._read_json()
-            data = asyncio.run(run_debate_from_payload(payload))
-            self._send_json(data)
+            session = asyncio.run(run_debate_from_payload(payload))
+            self._send_json(session.model_dump())
         except Exception as exc:  # pragma: no cover
             self._send_json({"error": self._safe_error(exc)}, status=500)
+        finally:
+            _debate_semaphore.release()
 
     def _stream_debate(self):
+        if not _debate_semaphore.acquire(blocking=False):
+            self._open_stream()
+            self._write_line({"type": "error", "error": "A debate is already running. Please wait."})
+            return
         try:
             payload = self._read_json()
             self._open_stream()
             asyncio.run(self._write_stream(payload))
         except Exception as exc:  # pragma: no cover
-            if not self.wfile.closed:
-                self._write_line({"type": "error", "error": self._safe_error(exc)})
+            try:
+                if not self.wfile.closed:
+                    self._write_line({"type": "error", "error": self._safe_error(exc)})
+            except OSError:
+                pass  # client already disconnected — nothing to do
+        finally:
+            _debate_semaphore.release()
 
     async def _write_stream(self, payload: dict):
         async for event in stream_debate_from_payload(payload):
@@ -69,7 +89,12 @@ class DebateGuiHandler(SimpleHTTPRequestHandler):
         self.wfile.flush()
 
     def _safe_error(self, exc: Exception) -> str:
-        return re.sub(r"key=[^'\s]+", "key=REDACTED", str(exc))
+        msg = str(exc)
+        # Redact common API key patterns
+        msg = re.sub(r"key=[^'\s]+",            "key=REDACTED",    msg)
+        msg = re.sub(r"Bearer\s+\S+",           "Bearer REDACTED", msg)
+        msg = re.sub(r"(sk|gsk|AIza)-[A-Za-z0-9_\-]+", "REDACTED", msg)
+        return msg
 
     def _read_json(self) -> dict:
         length = int(self.headers.get("Content-Length", "0"))
@@ -109,8 +134,11 @@ class DebateGuiHandler(SimpleHTTPRequestHandler):
 
 
 def main():
-    server = ThreadingHTTPServer(("127.0.0.1", 8000), DebateGuiHandler)
-    print("AI Debate GUI running at http://127.0.0.1:8000")
+    cfg  = ConfigManager()
+    host = cfg.server_host
+    port = cfg.server_port
+    server = ThreadingHTTPServer((host, port), DebateGuiHandler)
+    print(f"AI Debate GUI running at http://{host}:{port}")
     server.serve_forever()
 
 

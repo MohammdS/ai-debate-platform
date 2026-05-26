@@ -27,7 +27,7 @@ def test_format_for_prompt_with_results():
         SearchResult("B", "https://b.com", "snippet b"),
     ]
     text = tool.format_for_prompt(results)
-    assert "[Web sources found:]" in text
+    assert "[Web sources" in text
     assert "https://a.com" in text
     assert "https://b.com" in text
 
@@ -90,14 +90,36 @@ async def test_debater_injects_citations_on_even_rounds():
     mock_search.format_for_prompt = MagicMock(return_value="[Web sources found:]\n  1. evidence")
 
     debater = Debater("A", "AI is good", "AI topic", mock_client, mock_gk, search_tool=mock_search)
-    result = await debater.get_argument([], round_num=0)
+    # Use round_num=2 — search runs on even rounds > 0
+    result = await debater.get_argument([], round_num=2)
 
     mock_search.search.assert_called_once()
-    assert result == "My argument"
+    core = result.split("\n\n[Skills:")[0]
+    assert core == "My argument"
 
 
 @pytest.mark.asyncio
-async def test_debater_skips_search_on_odd_rounds():
+async def test_debater_searches_on_every_nonzero_round():
+    """Search is now run on every round > 0 (not just even rounds)."""
+    from src.services.debater import Debater
+
+    mock_client = MagicMock()
+    mock_gk = MagicMock()
+    mock_gk.execute = AsyncMock(return_value="argument")
+
+    mock_search = MagicMock()
+    mock_search.search = AsyncMock(return_value=[])
+    mock_search.format_for_prompt = MagicMock(return_value="")
+
+    debater = Debater("B", "AI is bad", "AI topic", mock_client, mock_gk, search_tool=mock_search)
+    await debater.get_argument([], round_num=1)
+
+    mock_search.search.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_debater_skips_search_on_round_zero():
+    """Round 0 = first synthetic message — no search is performed."""
     from src.services.debater import Debater
 
     mock_client = MagicMock()
@@ -108,6 +130,6 @@ async def test_debater_skips_search_on_odd_rounds():
     mock_search.search = AsyncMock(return_value=[])
 
     debater = Debater("B", "AI is bad", "AI topic", mock_client, mock_gk, search_tool=mock_search)
-    await debater.get_argument([], round_num=1)
+    await debater.get_argument([], round_num=0)
 
     mock_search.search.assert_not_called()

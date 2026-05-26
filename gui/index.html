@@ -36,6 +36,7 @@
             <select name="provider_a">
               <option value="zai">Z.ai</option>
               <option value="groq">Groq</option>
+              <option value="openrouter">OpenRouter</option>
               <option value="gemini">Gemini</option>
               <option value="openai">OpenAI</option>
               <option value="mock">Mock</option>
@@ -45,6 +46,7 @@
             <select name="provider_b">
               <option value="groq">Groq</option>
               <option value="zai">Z.ai</option>
+              <option value="openrouter">OpenRouter</option>
               <option value="gemini">Gemini</option>
               <option value="openai">OpenAI</option>
               <option value="mock">Mock</option>
@@ -71,6 +73,10 @@
         <p id="verdict-topic" class="topic-line">Topic will appear here after a debate starts.</p>
         <h2 id="judge-model">Judge model pending</h2>
         <p id="verdict-text">No verdict loaded yet.</p>
+        <details id="token-details" style="margin-top:1rem;font-size:0.85rem;" hidden>
+          <summary style="cursor:pointer;font-weight:600;">Token Usage</summary>
+          <dl id="token-stats" style="margin-top:0.5rem;display:grid;grid-template-columns:auto 1fr;gap:0.2rem 0.75rem;"></dl>
+        </details>
       </aside>
       <section class="transcript" aria-label="Debate transcript">
         <div class="section-head">

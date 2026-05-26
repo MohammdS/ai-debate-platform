@@ -1,5 +1,7 @@
 import asyncio
+import logging
 
+from src.models.debate import DebateSession, Message
 from src.sdk.llm_service import LLMService
 from src.services.base_agent import DebaterSkill
 from src.services.debater import Debater
@@ -7,6 +9,24 @@ from src.services.exporter import DebateExporter
 from src.services.judge import Judge
 from src.services.orchestrator import DebateOrchestrator
 from src.services.watchdog_agent import WatchdogAgent
+from src.shared.config import ConfigManager
+
+logger = logging.getLogger(__name__)
+_cfg = ConfigManager()
+
+
+def _merge_stats(*gks) -> dict:
+    """Aggregate token/cost stats across multiple ApiGatekeeper instances."""
+    return {
+        "total_tokens_in":    sum(g.get_stats()["total_tokens_in"]    for g in gks),
+        "total_tokens_out":   sum(g.get_stats()["total_tokens_out"]   for g in gks),
+        "estimated_cost_usd": round(sum(g.get_stats()["estimated_cost_usd"] for g in gks), 6),
+    }
+
+
+def _export(exporter: DebateExporter, topic: str, history: list, verdict: str, stats: dict) -> None:
+    exporter.export_to_markdown(topic, history, verdict, stats)
+    exporter.export_to_json(topic, history, verdict, stats)
 
 
 def _model_label(provider: str, model: str) -> str:
@@ -89,11 +109,9 @@ async def run_debate_from_payload(payload: dict) -> dict:
     verdict_box: list[str] = []
 
     async def _run_and_capture():
-        v = await orchestrator.run_debate()
-        verdict_box.append(v)
+        verdict_box.append(await orchestrator.run_debate())
 
-    watchdog = WatchdogAgent(max_failures=3, poll_interval=5.0)
-    watchdog.register("debate", _run_and_capture, timeout=600.0)
+    watchdog.register("debate", _run_and_capture, timeout=_cfg.watchdog_timeout)
     await watchdog.start()
 
     verdict = verdict_box[0] if verdict_box else "Debate did not complete."
@@ -120,10 +138,10 @@ async def stream_debate_from_payload(payload: dict):
     yield {"type": "start", "topic": topic, "model_info": model_info}
 
     debate_task = asyncio.create_task(orchestrator.run_debate())
-
+    stream_timeout = _cfg.stream_event_timeout
     while True:
         try:
-            event = await asyncio.wait_for(event_queue.get(), timeout=120.0)
+            event = await asyncio.wait_for(event_queue.get(), timeout=stream_timeout)
         except TimeoutError:
             break
         if event.get("type") == "_done":
