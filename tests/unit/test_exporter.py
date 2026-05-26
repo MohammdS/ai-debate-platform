@@ -1,6 +1,5 @@
 """Tests for DebateExporter — markdown/JSON output and token usage section."""
 import json
-from pathlib import Path
 
 import pytest
 

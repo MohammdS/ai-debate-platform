@@ -55,9 +55,8 @@ async def test_openai_rate_limit_raises():
     resp = _mock_response(429, "rate limited")
     resp.text = "rate limited"
 
-    with patch("httpx.AsyncClient.post", new=AsyncMock(return_value=resp)):
-        with pytest.raises(RateLimitError):
-            await client.generate_response([{"role": "user", "content": "hi"}])
+    with patch("httpx.AsyncClient.post", new=AsyncMock(return_value=resp)), pytest.raises(RateLimitError):
+        await client.generate_response([{"role": "user", "content": "hi"}])
 
 
 @pytest.mark.asyncio
@@ -66,9 +65,8 @@ async def test_openai_http_error_raises():
     resp = _mock_response(500, "server error")
     resp.text = "server error"
 
-    with patch("httpx.AsyncClient.post", new=AsyncMock(return_value=resp)):
-        with pytest.raises(ProviderHTTPError):
-            await client.generate_response([{"role": "user", "content": "hi"}])
+    with patch("httpx.AsyncClient.post", new=AsyncMock(return_value=resp)), pytest.raises(ProviderHTTPError):
+        await client.generate_response([{"role": "user", "content": "hi"}])
 
 
 @pytest.mark.asyncio
@@ -76,9 +74,11 @@ async def test_openai_json_decode_error_raises_invalid_response():
     client = _make_client()
     resp = _mock_response(200, "<html>not json</html>")  # triggers JSONDecodeError
 
-    with patch("httpx.AsyncClient.post", new=AsyncMock(return_value=resp)):
-        with pytest.raises(InvalidResponseError, match="invalid JSON"):
-            await client.generate_response([{"role": "user", "content": "hi"}])
+    with (
+        patch("httpx.AsyncClient.post", new=AsyncMock(return_value=resp)),
+        pytest.raises(InvalidResponseError, match="invalid JSON"),
+    ):
+        await client.generate_response([{"role": "user", "content": "hi"}])
 
 
 @pytest.mark.asyncio
@@ -87,6 +87,5 @@ async def test_openai_missing_choices_raises_invalid_response():
     body = {"usage": {}}  # missing "choices"
     resp = _mock_response(200, body)
 
-    with patch("httpx.AsyncClient.post", new=AsyncMock(return_value=resp)):
-        with pytest.raises(InvalidResponseError):
-            await client.generate_response([{"role": "user", "content": "hi"}])
+    with patch("httpx.AsyncClient.post", new=AsyncMock(return_value=resp)), pytest.raises(InvalidResponseError):
+        await client.generate_response([{"role": "user", "content": "hi"}])

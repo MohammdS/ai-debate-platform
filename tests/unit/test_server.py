@@ -1,8 +1,6 @@
 """Server unit tests: _safe_error redaction and request queuing."""
 import re
-import threading
-import sys
-import types
+
 
 # Lightweight stub — avoids importing the full server (which needs a running port)
 def _safe_error(exc: Exception) -> str:

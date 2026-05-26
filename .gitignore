@@ -1,11 +1,45 @@
+# Python
 __pycache__/
-.venv/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Environment & secrets
 .env
+.venv/
+venv/
+
+# Testing
 .pytest_cache/
 .coverage
 htmlcov/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project-specific generated files
 results/
 data/
+logs/
 *.log
+knowledge/
+.chroma_db/
+debate.log
+
+# Lock file (checked-in separately — keep out of noise)
 uv.lock
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs generated
 docs/AUDIT_REPORT.md
+

@@ -1,12 +1,12 @@
 import asyncio
 from collections.abc import Callable
 
-from src.shared.constants import MAX_ROUNDS
 from src.ipc.channel import IpcChannel
 from src.ipc.message import DebateMessage, MessageType
 from src.services.debater import Debater
 from src.services.judge import Judge
 from src.shared.config import ConfigManager
+from src.shared.constants import MAX_ROUNDS
 from src.shared.logger import setup_logger
 
 
@@ -72,7 +72,12 @@ class DebateOrchestrator:
         await self.debater_a.inbox.send(seed)
 
     async def _run_judge_and_collect(self, verdict_ch: IpcChannel) -> str:
-        """Runs the judge mediator loop, then reads the verdict off the channel."""
+        """Runs the judge mediator loop, then reads the verdict off the channel.
+
+        Ordering contract: judge.run() sends the VERDICT message to verdict_ch
+        before returning, so the receive() below always finds a message already
+        queued — there is no blocking wait beyond the channel timeout.
+        """
         await self.judge.run(self.rounds)
         verdict_msg = await verdict_ch.receive()
         return verdict_msg.payload
@@ -82,7 +87,7 @@ class DebateOrchestrator:
         Wire channels, seed the first turn, then launch all three agent
         coroutines concurrently via asyncio.gather. Returns the final verdict.
         """
-        self.logger.info(f"Starting IPC debate: {self.debater_a.topic}")
+        self.logger.info("Starting IPC debate: %s", self.debater_a.topic)
         verdict_ch = self._wire_channels()
         await self._seed_first_turn()
 

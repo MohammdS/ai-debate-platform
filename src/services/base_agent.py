@@ -40,13 +40,23 @@ def get_agent_prompt(role: str) -> dict:
 
 def enforce_word_limit(text: str, max_words: int, label: str,
                        logger: logging.Logger) -> str:
-    """Truncates text to max_words if exceeded, logging a warning."""
+    """Truncate text to max_words if exceeded, cutting at the last complete sentence.
+
+    Prefers cutting at a sentence boundary (.!?) so responses never end
+    mid-thought. Falls back to a hard word cut only when no boundary exists.
+    """
     words = text.split()
     if len(words) <= max_words:
         return text
     logger.warning("%s response exceeded %d words (%d) — truncating",
                    label, max_words, len(words))
-    return " ".join(words[:max_words]) + "..."
+    truncated = " ".join(words[:max_words])
+    # Find the last sentence-ending punctuation and cut there if it
+    # leaves at least 4 complete words (avoids cutting to "Fine." only).
+    last_end = max(truncated.rfind("."), truncated.rfind("!"), truncated.rfind("?"))
+    if last_end != -1 and len(truncated[: last_end + 1].split()) >= 4:
+        return truncated[: last_end + 1]
+    return truncated  # no clean boundary — return word-truncated (no "...")
 
 
 class BaseAgent(ABC):

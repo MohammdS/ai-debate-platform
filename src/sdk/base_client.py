@@ -3,15 +3,26 @@ from abc import ABC, abstractmethod
 from src.sdk.exceptions import InvalidResponseError, MissingAPIKeyError
 
 
+def _default_http_timeout() -> float:
+    """Read http_timeout_seconds from config; fall back to 60.0 if unavailable."""
+    try:
+        from src.shared.config import ConfigManager
+        return ConfigManager().http_timeout
+    except Exception:
+        return 60.0
+
+
 class BaseAIClient(ABC):
     """Abstract base class for all AI provider clients."""
 
     def __init__(self, model_name: str, api_key: str,
-                 max_tokens: int = 180, temperature: float = 0.7):
-        self.model_name  = model_name
-        self.api_key     = api_key
-        self.max_tokens  = max_tokens
-        self.temperature = temperature
+                 max_tokens: int = 180, temperature: float = 0.7,
+                 http_timeout: float | None = None):
+        self.model_name   = model_name
+        self.api_key      = api_key
+        self.max_tokens   = max_tokens
+        self.temperature  = temperature
+        self.http_timeout = http_timeout if http_timeout is not None else _default_http_timeout()
         self.last_usage: dict = {}   # populated after each successful call
         self._check_api_key()
 

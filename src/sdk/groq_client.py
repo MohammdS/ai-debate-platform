@@ -3,15 +3,21 @@ import json
 import httpx
 
 from src.sdk.base_client import BaseAIClient
-from src.sdk.exceptions import InvalidResponseError, ProviderHTTPError, ProviderTimeoutError, RateLimitError
+from src.sdk.exceptions import (
+    InvalidResponseError,
+    ProviderHTTPError,
+    ProviderTimeoutError,
+    RateLimitError,
+)
 
 
 class GroqClient(BaseAIClient):
     """Client for Groq's OpenAI-compatible chat completions API."""
 
+    _BASE_URL = "https://api.groq.com/openai/v1/chat/completions"
+
     async def generate_response(self, messages: list[dict]) -> str:
         """Sends a chat completion request to Groq."""
-        url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -24,8 +30,8 @@ class GroqClient(BaseAIClient):
         }
 
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(url, headers=headers, json=payload)
+            async with httpx.AsyncClient(timeout=self.http_timeout) as client:
+                response = await client.post(self._BASE_URL, headers=headers, json=payload)
         except httpx.TimeoutException as exc:
             raise ProviderTimeoutError("Groq request timed out") from exc
 

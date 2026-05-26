@@ -1,0 +1,62 @@
+{
+  "evidence": {
+    "skill_type_trigger": "evidence_based",
+    "template": "Support your argument{topic_hint} with concrete facts, data, or widely recognised evidence. Cite the source or institution behind each claim. Avoid invented statistics."
+  },
+  "socratic": {
+    "skill_type_trigger": "socratic",
+    "intro": "Challenge opponent's assumptions{target} with probing questions.",
+    "question_templates": [
+      "What evidence supports...?",
+      "How do you explain...?",
+      "What are the consequences if you are wrong?"
+    ]
+  },
+  "citation": {
+    "instruction": "Name your source for every factual claim you make.",
+    "challenge_template": " After your main argument, note that the opponent's claim ('{snippet}...') requires a verifiable source.",
+    "snippet_chars": 60,
+    "challenge_interval_rounds": 3
+  },
+  "tone_moderation": {
+    "instruction": "Be direct and assertive. Avoid aggressive language. No personal attacks."
+  },
+  "rebuttal": {
+    "attack_template": "Attack this specific claim: \"{strongest_claim}\". Refute it directly with evidence or logic. Then introduce ONE new argument angle not yet raised in this debate."
+  },
+  "repetition_guard": {
+    "max_previous_tracked": 3,
+    "template": "PREVIOUSLY ARGUED — do NOT repeat or rephrase these points:\n{phrases}\nYou MUST introduce a genuinely new idea this turn."
+  },
+  "progression": {
+    "angles": [
+      "economic and financial impact",
+      "historical precedent and track record",
+      "a specific counterexample that undermines the opponent",
+      "long-term consequences and sustainability",
+      "ethical, social, or cultural dimension",
+      "scientific or empirical research findings",
+      "policy implications and governance challenges",
+      "impact on marginalized or vulnerable groups",
+      "technological feasibility and practical constraints",
+      "comparative analysis with similar cases or countries"
+    ],
+    "template": "Round {round_num}: You MUST introduce a FRESH perspective. Explore the **{angle}** of this debate — an angle not yet fully addressed. Do not recycle previous arguments."
+  },
+  "summarization": {
+    "min_transcript_entries": 4,
+    "snippet_chars": 80,
+    "header": "Recent debate summary:"
+  },
+  "judge_evaluation": {
+    "skill_type_trigger": "judge",
+    "criteria": ["Logic", "Evidence Quality", "Rebuttal Quality", "Relevance", "Clarity"],
+    "citation_bonus": 5,
+    "uncited_penalty": 3,
+    "tiebreak_criterion": "Rebuttal Quality",
+    "verdict_format": "Respond with ONLY valid JSON in this exact schema:\n{\n  \"scores\": {\n    \"pro\": {\"logic\": 0-10, \"evidence\": 0-10, \"rebuttal_quality\": 0-10, \"relevance\": 0-10, \"clarity\": 0-10, \"citation_quality\": 0-10, \"repetition_penalty\": 0, \"total\": 0},\n    \"contra\": {\"logic\": 0-10, \"evidence\": 0-10, \"rebuttal_quality\": 0-10, \"relevance\": 0-10, \"clarity\": 0-10, \"citation_quality\": 0-10, \"repetition_penalty\": 0, \"total\": 0}\n  },\n  \"reasoning\": {\"pro\": \"explanation\", \"contra\": \"explanation\"},\n  \"winner\": \"Pro or Contra\"\n}"
+  },
+  "fact_safety": {
+    "enabled": true
+  }
+}

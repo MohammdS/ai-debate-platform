@@ -1,0 +1,53 @@
+# Requirements Traceability Matrix
+
+This document maps every requirement from the project assignment guidelines and PRD to its concrete implementation, test coverage, and a runnable demo command.
+
+---
+
+| ID | Requirement | Status | Implementation | Tests | Demo Command |
+|----|-------------|--------|----------------|-------|--------------|
+| REQ-001 | Python 3.12+, `uv` package manager | DONE | `pyproject.toml` — `requires-python = ">=3.12"`; `uv.lock` committed; all commands use `uv run` | `tests/unit/test_config.py` | `uv run python --version` |
+| REQ-002 | Modular architecture (`src/sdk`, `src/services`, `src/shared`, `src/skills`) | DONE | Directories: `src/sdk/`, `src/services/`, `src/shared/`, `src/skills/`, `src/ipc/`, `src/cli/`, `src/gui/`, `src/tools/` | All unit test files | `ls src/` |
+| REQ-003 | All source files ≤ 150 physical lines | DONE | All source files in `src/` respect the 150-line limit. Test files are exempt per standard practice (tests may be longer due to fixture setup and parametrised cases). | — | `wc -l src/**/*.py \| sort -n` |
+| REQ-004 | `README.md` with install/usage/config | DONE | `README.md` — full installation (uv), quick-start, mock demo, config guide, architecture diagrams | — | `cat README.md` |
+| REQ-005 | `docs/PRD.md` exists and is complete | DONE | `docs/PRD.md` — product requirements, scope, agent roles, skill design, acceptance criteria | — | `cat docs/PRD.md` |
+| REQ-006 | `docs/PLAN.md` with architecture | DONE | `docs/PLAN.md` — component diagram, layer responsibilities, IPC design, milestone plan | — | `cat docs/PLAN.md` |
+| REQ-007 | `docs/TODO.md` with task tracking | DONE | `docs/TODO.md` — categorised tasks with DONE/IN-PROGRESS/TODO status markers | — | `cat docs/TODO.md` |
+| REQ-008 | SDK layer as single entry point (`LLMService` + clients) | DONE | `src/sdk/llm_service.py` — `LLMService.complete()` routes all calls; clients: `openai_client.py`, `gemini_client.py`, `groq_client.py`, `zai_client.py`, `openrouter_client.py`, `mock_client.py` | `tests/unit/test_llm_service.py` | `uv run pytest tests/unit/test_llm_service.py -v` |
+| REQ-009 | OOP — no code duplication (`BaseAgent`, `BaseAIClient`, `BaseSkill`) | DONE | `src/services/base_agent.py` — `BaseAgent`; `src/sdk/base_client.py` — `BaseAIClient`; `src/skills/base_skill.py` — `BaseSkill`. All agents, clients, and skills inherit from these bases. | `tests/unit/test_base_agent.py`, `tests/unit/test_base_client.py` | `uv run pytest tests/unit/test_base_agent.py tests/unit/test_base_client.py -v` |
+| REQ-010 | API Gatekeeper (`ApiGatekeeper` in `src/shared/gatekeeper.py`) | DONE | `src/shared/gatekeeper.py` — `ApiGatekeeper` wraps every outbound call with rate-limit enforcement, retry logic, and per-provider token bucket | `tests/unit/test_gatekeeper.py` | `uv run pytest tests/unit/test_gatekeeper.py -v` |
+| REQ-011 | Rate limits from config (`config/rate_limits.json`) | DONE | `config/rate_limits.json` — per-provider RPM, timeout, retries; loaded via `src/shared/rate_config.py` at startup | `tests/unit/test_gatekeeper.py` | `uv run pytest tests/unit/test_gatekeeper.py -v -k "rate"` |
+| REQ-012 | Queue-based rate limiting (backpressure) | DONE | `src/shared/gatekeeper.py` — `asyncio.Queue` used for request serialisation; `src/shared/rate_config.py` — per-provider semaphore and token-bucket backpressure | `tests/unit/test_gatekeeper.py` | `uv run pytest tests/unit/test_gatekeeper.py -v -k "queue"` |
+| REQ-013 | TDD — test files exist for every module | DONE | `tests/unit/` contains 25+ test files covering every `src/` module: debater, judge, orchestrator, skills, gatekeeper, llm_service, factory, ipc, config, web_search, watchdog, exporter, logger, models, server, cli | `uv run pytest tests/unit/ --collect-only` | `uv run pytest tests/unit/ --collect-only` |
+| REQ-014 | Coverage ≥ 85% | DONE | `pyproject.toml` — `[tool.coverage.report] fail_under = 85`; coverage excludes `src/main.py` and `src/gui/server.py` (entry points) | `uv run pytest --cov=src --cov-report=term-missing` | `uv run pytest --cov=src --cov-report=term-missing` |
+| REQ-015 | Ruff linter zero errors | DONE | `pyproject.toml` — `[tool.ruff]` configured with `E, F, W, I, N, UP, B, C4, SIM` rule sets; `line-length = 100`; `target-version = "py312"` | `uv run ruff check src/` | `uv run ruff check src/` |
+| REQ-016 | No hardcoded values (`config/setup.json` used) | DONE | All runtime parameters (rounds, tokens, temperature, timeouts, word limits, log dir, server host/port, watchdog settings, skill pools) loaded from `config/setup.json` via `src/shared/config.py` | `tests/unit/test_config.py` | `uv run pytest tests/unit/test_config.py -v` |
+| REQ-017 | No secrets in code (`.env` + `.env-example` pattern) | DONE | `.env-example` provides template for `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `ZAI_API_KEY`, `OPENROUTER_API_KEY`; `.env` in `.gitignore`; all clients read keys via `python-dotenv` | — | `cat .env-example` |
+| REQ-018 | `uv.lock` committed (dependency pinning) | DONE | `uv.lock` tracked in git; `pyproject.toml` pins all direct dependencies | — | `git log --oneline uv.lock` |
+| REQ-019 | 10-round debate (20 debater turns total) | DONE | `config/setup.json` — `"total_rounds": 10`; `src/services/orchestrator.py` iterates rounds; each round produces one Pro turn + one Contra turn = 20 debater turns total | `tests/unit/test_quality.py`, `tests/unit/test_orchestrator.py` | `uv run pytest tests/unit/test_quality.py -v -k "turns"` |
+| REQ-020 | IPC communication via `asyncio.Queue` channels | DONE | `src/ipc/channel.py` — `DebateChannel` wraps `asyncio.Queue`; `src/ipc/message.py` — typed `IPCMessage`; `src/ipc/protocol.py` — message-type enum; `src/ipc/heartbeat.py` — liveness signals | `tests/unit/test_ipc_channel.py`, `tests/unit/test_ipc_message.py`, `tests/unit/test_ipc_protocol.py` | `uv run pytest tests/unit/test_ipc_channel.py tests/unit/test_ipc_protocol.py -v` |
+| REQ-021 | Three agents: Debater A (Pro), Debater B (Contra), Judge | DONE | `src/services/debater.py` — `Debater` class (instantiated twice with opposing stances); `src/services/judge.py` — `Judge` class; `src/services/orchestrator.py` creates all three | `tests/unit/test_debater.py`, `tests/unit/test_judge.py`, `tests/unit/test_orchestrator.py` | `uv run pytest tests/unit/test_debater.py tests/unit/test_judge.py -v` |
+| REQ-022 | Judge relays messages and declares winner | DONE | `src/services/judge.py` — relays each debater's argument to the opposing side via IPC channels; at debate end calls `evaluate()` producing a structured verdict with scores and winner | `tests/unit/test_judge.py` | `uv run pytest tests/unit/test_judge.py -v -k "verdict or relay"` |
+| REQ-023 | Skill selection per turn (`SkillSelector`) | DONE | `src/skills/skill_selector.py` — `SkillSelector.select()` evaluates `SkillContext` against registered skills; logs selected skills per turn; injects guidance into prompt | `tests/unit/test_skills.py` | `uv run pytest tests/unit/test_skills.py -v -k "selector"` |
+| REQ-024 | Repetition detection (`RepetitionGuardSkill`) | DONE | `src/skills/repetition_guard_skill.py` — fingerprints previous arguments; detects recycled claims; injects anti-repetition guidance into the debater's prompt | `tests/unit/test_skills.py` | `uv run pytest tests/unit/test_skills.py -v -k "repetition"` |
+| REQ-025 | Web search tool integration | DONE | `src/tools/web_search.py` — DuckDuckGo integration via `ddgs` library; results injected as evidence context; gracefully skipped for MockAIClient | `tests/unit/test_web_search.py` | `uv run pytest tests/unit/test_web_search.py -v` |
+| REQ-026 | Watchdog agent for fault tolerance | DONE | `src/services/watchdog_agent.py` — `WatchdogAgent` monitors heartbeats from debate agents; triggers recovery on timeout or `max_failures` exceeded; configurable via `config/setup.json` `"watchdog"` section | `tests/unit/test_watchdog_agent.py` | `uv run pytest tests/unit/test_watchdog_agent.py -v` |
+| REQ-027 | CLI interface (`src/main.py` + `src/cli/`) | DONE | `src/main.py` — argument parser entry point; `src/cli/menu.py` — interactive menu; supports `--topic`, `--stance-a`, `--stance-b`, `--provider-a`, `--provider-b`, `--judge-provider` flags | `tests/unit/test_main_cli.py` | `uv run python -m src.main --help` |
+| REQ-028 | GUI interface (`src/gui/`) | DONE | `src/gui/server.py` — FastAPI server with SSE streaming; `src/gui/debate_runner.py` — async debate runner; `gui/index.html` — single-page frontend | `tests/unit/test_server.py`, `tests/unit/test_gui_runner.py` | `uv run python -m src.gui.server` |
+| REQ-029 | Mock provider for API-key-free demo | DONE | `src/sdk/mock_client.py` — `MockAIClient` returns deterministic responses without any network calls; supports `--provider-a mock --provider-b mock` | `tests/unit/test_factory.py`, `tests/unit/test_llm_service.py` | `uv run python -m src.main --topic "AI" --stance-a "Pro AI" --stance-b "Anti AI" --provider-a mock --provider-b mock` |
+| REQ-030 | Exported results (markdown + JSON in `results/`) | DONE | `src/services/exporter.py` — `DebateExporter` writes both `.md` transcript and `.json` structured results to `results/` directory after each debate | `tests/unit/test_exporter.py` | `uv run pytest tests/unit/test_exporter.py -v` |
+| REQ-031 | Global versions tracked (`src/shared/version.py` + config `"version"` fields) | DONE | `src/shared/version.py` — `VERSION = "1.00"`; `pyproject.toml` — `version = "1.0.0"`; version surfaced in CLI `--version` flag | `tests/unit/test_config.py` | `uv run python -m src.main --version` |
+| REQ-032 | Context compression (`ContextCompressor`) | DONE | `src/services/context_compressor.py` — `ContextCompressor` summarises transcript entries exceeding the `judge_max_transcript_entries` limit before passing to the judge, preventing context-window overflow | `tests/unit/test_orchestrator.py` | `uv run pytest tests/unit/test_orchestrator.py -v -k "compress"` |
+| REQ-033 | Multiple LLM providers (OpenAI, Gemini, Groq, ZAI, OpenRouter, Mock) | DONE | `src/sdk/factory.py` — `ClientFactory.create()` dispatches to: `OpenAIClient`, `GeminiClient`, `GroqClient`, `ZAIClient`, `OpenRouterClient`, `MockAIClient` — six providers total | `tests/unit/test_factory.py`, `tests/unit/test_openrouter_client.py`, `tests/unit/test_zai_client.py` | `uv run pytest tests/unit/test_factory.py -v` |
+
+---
+
+## Summary
+
+| Status | Count |
+|--------|-------|
+| DONE | 33 |
+| PARTIAL | 0 |
+| MISSING | 0 |
+
+All 33 requirements are implemented. See individual test files under `tests/unit/` for detailed coverage of each requirement.

@@ -248,6 +248,23 @@ async def test_cost_zero_for_mock_provider():
 
 
 @pytest.mark.asyncio
+async def test_cost_zero_for_openrouter_free_model_but_tokens_counted():
+    gk = ApiGatekeeper(
+        rpm_limit=1000,
+        provider="openrouter",
+        model="openai/gpt-oss-120b:free",
+    )
+    client = make_usage_client(prompt=1000, completion=500)
+
+    await gk.execute(client.generate_response, [{"role": "user", "content": "x"}])
+
+    stats = gk.get_stats()
+    assert stats["total_tokens_in"] == 1000
+    assert stats["total_tokens_out"] == 500
+    assert stats["estimated_cost_usd"] == 0.0
+
+
+@pytest.mark.asyncio
 async def test_cost_calculated_from_pricing():
     # groq llama-3.1-8b-instant: $0.05/1M in, $0.08/1M out
     gk = ApiGatekeeper(rpm_limit=1000, provider="groq", model="llama-3.1-8b-instant")

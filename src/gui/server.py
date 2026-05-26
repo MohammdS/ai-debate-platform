@@ -7,6 +7,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from src.gui.debate_runner import run_debate_from_payload, stream_debate_from_payload
+from src.shared.config import ConfigManager
 
 # Allows only one debate to run at a time; prevents resource exhaustion when
 # multiple browser tabs POST simultaneously.
@@ -133,8 +134,11 @@ class DebateGuiHandler(SimpleHTTPRequestHandler):
 
 
 def main():
-    server = ThreadingHTTPServer(("127.0.0.1", 8000), DebateGuiHandler)
-    print("AI Debate GUI running at http://127.0.0.1:8000")
+    cfg  = ConfigManager()
+    host = cfg.server_host
+    port = cfg.server_port
+    server = ThreadingHTTPServer((host, port), DebateGuiHandler)
+    print(f"AI Debate GUI running at http://{host}:{port}")
     server.serve_forever()
 
 

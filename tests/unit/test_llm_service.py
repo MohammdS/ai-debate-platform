@@ -8,6 +8,7 @@ from src.sdk.groq_client import GroqClient
 from src.sdk.llm_service import LLMService
 from src.sdk.mock_client import MockAIClient
 from src.sdk.openai_client import OpenAIClient
+from src.sdk.openrouter_client import OpenRouterClient
 
 
 def make_models_config(tmp_path: Path) -> Path:
@@ -89,6 +90,16 @@ def test_get_gatekeeper_returns_gatekeeper_for_provider(tmp_path):
     assert isinstance(gk, ApiGatekeeper)
 
 
+def test_get_gatekeeper_passes_selected_model(tmp_path):
+    service = LLMService(
+        config_path=make_models_config(tmp_path),
+        role_overrides={"debater_a": "openrouter"},
+    )
+    gk = service.get_gatekeeper("debater_a")
+    assert gk._provider == "openrouter"
+    assert gk._model == "openai/gpt-oss-120b:free"
+
+
 # --- missing config fallback ---
 
 def test_missing_config_file_falls_back_to_mock(tmp_path):
@@ -104,6 +115,15 @@ def test_role_overrides_judge_to_groq(tmp_path):
         role_overrides={"judge": "groq"},
     )
     assert service.provider_for("judge") == "groq"
+
+
+def test_role_overrides_to_openrouter_uses_openrouter_model(tmp_path):
+    service = LLMService(
+        config_path=make_models_config(tmp_path),
+        role_overrides={"debater_a": "openrouter"},
+    )
+    assert service.provider_for("debater_a") == "openrouter"
+    assert service.model_for("debater_a") == "openai/gpt-oss-120b:free"
 
 
 # --- factory creates correct client types ---
@@ -126,3 +146,8 @@ def test_factory_creates_gemini_client():
 def test_factory_creates_openai_client():
     client = AIClientFactory.create_client("openai", "gpt-4", "real-key")
     assert isinstance(client, OpenAIClient)
+
+
+def test_factory_creates_openrouter_client():
+    client = AIClientFactory.create_client("openrouter", "openai/gpt-oss-120b:free", "real-key")
+    assert isinstance(client, OpenRouterClient)

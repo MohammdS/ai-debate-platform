@@ -35,6 +35,7 @@ async def test_zai_client_generate_response(monkeypatch):
 @pytest.mark.asyncio
 async def test_zai_timeout_raises_provider_timeout(monkeypatch):
     import httpx
+
     from src.sdk.exceptions import ProviderTimeoutError
 
     async def mock_post(self, url, **kwargs):
@@ -68,6 +69,7 @@ async def test_zai_rate_limit_raises(monkeypatch):
 @pytest.mark.asyncio
 async def test_zai_json_decode_error_raises(monkeypatch):
     import json
+
     from src.sdk.exceptions import InvalidResponseError
 
     class MockResponse:
@@ -103,3 +105,55 @@ async def test_zai_empty_content_raises(monkeypatch):
     client = ZaiClient("glm-4-flash", "key")
     with pytest.raises(InvalidResponseError, match="empty content"):
         await client.generate_response([{"role": "user", "content": "hi"}])
+
+
+@pytest.mark.asyncio
+async def test_zai_empty_content_with_finish_reason_length_raises(monkeypatch):
+    """finish_reason='length' with truly empty content must still raise, not silently pass."""
+    from src.sdk.exceptions import InvalidResponseError
+
+    class MockResponse:
+        status_code = 200
+        is_success = True
+        text = ""
+
+        def json(self):
+            # Simulates GLM returning finish_reason='length' but zero content bytes —
+            # the model consumed the entire budget on the prompt, leaving nothing for output.
+            return {
+                "choices": [{"message": {"content": ""}, "finish_reason": "length"}],
+                "usage": {"prompt_tokens": 512, "completion_tokens": 0, "total_tokens": 512},
+            }
+
+    async def mock_post(self, url, **kwargs):
+        return MockResponse()
+
+    monkeypatch.setattr("httpx.AsyncClient.post", mock_post)
+    client = ZaiClient("glm-4-flash", "key")
+    with pytest.raises(InvalidResponseError, match="empty content"):
+        await client.generate_response([{"role": "user", "content": "hi"}])
+
+
+@pytest.mark.asyncio
+async def test_zai_partial_content_with_finish_reason_length_returned(monkeypatch):
+    """finish_reason='length' with non-empty content is returned as-is (not raised)."""
+    class MockResponse:
+        status_code = 200
+        is_success = True
+        text = ""
+
+        def json(self):
+            return {
+                "choices": [
+                    {"message": {"content": "AI is beneficial"}, "finish_reason": "length"}
+                ],
+                "usage": {"prompt_tokens": 480, "completion_tokens": 32, "total_tokens": 512},
+            }
+
+    async def mock_post(self, url, **kwargs):
+        return MockResponse()
+
+    monkeypatch.setattr("httpx.AsyncClient.post", mock_post)
+    client = ZaiClient("glm-4-flash", "key")
+    result = await client.generate_response([{"role": "user", "content": "hi"}])
+    assert result == "AI is beneficial"

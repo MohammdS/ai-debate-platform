@@ -27,7 +27,7 @@ def make_ctx(**kwargs):
 # 1
 def test_rebuttal_can_handle_with_opponent_message():
     skill = RebuttalSkill()
-    ctx = make_ctx(opponent_last_message="AI is dangerous.")
+    ctx = make_ctx(opponent_last_message="AI is dangerous.", round_num=2)
     assert skill.can_handle(ctx) is True
 
 
@@ -168,7 +168,8 @@ def test_socratic_skill_includes_opponent_claim():
 # 16 — CitationSkill includes opponent claim excerpt when present
 def test_citation_skill_includes_opponent_when_present():
     skill = CitationSkill()
-    ctx = make_ctx(opponent_last_message="Studies show 90% of jobs will be automated")
+    # round_num=4: first qualifying challenge round after round 1 is excluded
+    ctx = make_ctx(round_num=4, opponent_last_message="Studies show 90% of jobs will be automated")
     result = skill.run(ctx)
     assert "Studies show" in result.content
 

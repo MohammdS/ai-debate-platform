@@ -24,6 +24,7 @@
             <select name="provider_a">
               <option value="zai">Z.ai</option>
               <option value="groq">Groq</option>
+              <option value="openrouter">OpenRouter</option>
               <option value="gemini">Gemini</option>
               <option value="openai">OpenAI</option>
               <option value="mock">Mock</option>
@@ -33,6 +34,7 @@
             <select name="provider_b">
               <option value="groq">Groq</option>
               <option value="zai">Z.ai</option>
+              <option value="openrouter">OpenRouter</option>
               <option value="gemini">Gemini</option>
               <option value="openai">OpenAI</option>
               <option value="mock">Mock</option>
@@ -41,20 +43,6 @@
         </div>
         <p class="judge-note">Judge: Groq (fixed)</p>
         <label>Rounds<input name="rounds" type="number" min="1" max="10" value="10"></label>
-        <details style="margin-top:0.5rem;">
-          <summary style="cursor:pointer;font-size:0.9rem;font-weight:600;">RAG (Knowledge Base)</summary>
-          <div class="grid" style="margin-top:0.5rem;">
-            <label style="flex-direction:row;align-items:center;gap:0.4rem;">
-              <input type="checkbox" name="use_rag" value="true"> Enable RAG
-            </label>
-            <label style="flex-direction:row;align-items:center;gap:0.4rem;">
-              <input type="checkbox" name="rebuild_index" value="true"> Rebuild index
-            </label>
-          </div>
-          <label style="margin-top:0.25rem;">Top-K passages
-            <input name="top_k" type="number" min="1" max="10" value="3">
-          </label>
-        </details>
         <button id="run-button" type="submit">Run Debate</button>
       </form>
     </section>

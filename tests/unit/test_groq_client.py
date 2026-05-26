@@ -35,6 +35,7 @@ async def test_groq_client_generate_response(monkeypatch):
 @pytest.mark.asyncio
 async def test_groq_timeout_raises_provider_timeout(monkeypatch):
     import httpx
+
     from src.sdk.exceptions import ProviderTimeoutError
 
     async def mock_post(self, url, **kwargs):
@@ -68,6 +69,7 @@ async def test_groq_rate_limit_raises(monkeypatch):
 @pytest.mark.asyncio
 async def test_groq_json_decode_error_raises(monkeypatch):
     import json
+
     from src.sdk.exceptions import InvalidResponseError
 
     class MockResponse:

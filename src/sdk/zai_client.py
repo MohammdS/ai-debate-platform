@@ -47,7 +47,7 @@ class ZaiClient(BaseAIClient):
         }
 
         try:
-            async with self._get_semaphore(), httpx.AsyncClient(timeout=60.0) as client:
+            async with self._get_semaphore(), httpx.AsyncClient(timeout=self.http_timeout) as client:
                 response = await client.post(self._BASE_URL, headers=headers, json=payload)
         except httpx.TimeoutException as exc:
             raise ProviderTimeoutError("z.ai request timed out") from exc
@@ -63,10 +63,18 @@ class ZaiClient(BaseAIClient):
             raise InvalidResponseError(f"z.ai returned invalid JSON: {response.text[:200]}") from exc
         self._store_usage(data)
         content = self._validate_response_shape(data, ["choices", 0, "message", "content"])
+        finish_reason = data["choices"][0].get("finish_reason", "unknown")
         if not content.strip():
-            finish_reason = data["choices"][0].get("finish_reason", "unknown")
             raise InvalidResponseError(
                 f"z.ai returned empty content (finish_reason={finish_reason!r})"
             )
-        logger.debug("z.ai response received (%d chars)", len(content))
+        if finish_reason == "length":
+            # Model hit max_tokens mid-generation — content is non-empty but truncated.
+            # Return what we have; enforce_word_limit() in the caller will tidy it up.
+            logger.warning(
+                "z.ai response truncated by max_tokens (%d chars returned); "
+                "consider raising debater_max_tokens in setup.json",
+                len(content),
+            )
+        logger.debug("z.ai response received (%d chars, finish_reason=%r)", len(content), finish_reason)
         return content

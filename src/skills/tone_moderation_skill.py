@@ -1,6 +1,8 @@
 from src.skills.base_skill import BaseSkill
 from src.skills.models import SkillContext, SkillResult
 
+_DEFAULT_INSTRUCTION = "Be direct and assertive. Avoid aggressive language. No personal attacks."
+
 
 class ToneModerationSkill(BaseSkill):
     name = "tone_moderation"
@@ -10,7 +12,8 @@ class ToneModerationSkill(BaseSkill):
         return True
 
     def run(self, context: SkillContext) -> SkillResult:
-        content = "Be direct and assertive. Avoid aggressive language. No personal attacks."
+        cfg = self._get_config()
+        content = cfg.get("instruction", _DEFAULT_INSTRUCTION)
         return SkillResult(
             skill_name=self.name,
             selected=True,

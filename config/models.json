@@ -1,7 +1,7 @@
 {
   "debater_a": {
     "provider": "zai",
-    "model": "glm-4.5-flash"
+    "model": "glm-4.7-flash"
   },
   "debater_b": {
     "provider": "groq",
@@ -10,6 +10,10 @@
   "judge": {
     "provider": "groq",
     "model": "llama-3.1-8b-instant"
+  },
+  "openrouter": {
+    "provider": "openrouter",
+    "model": "openai/gpt-oss-120b:free"
   },
   "default": {
     "provider": "groq",

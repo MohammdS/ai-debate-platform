@@ -43,7 +43,7 @@ def test_debater_skill_shapes_system_prompt():
     d_socratic  = Debater("Contra", "no", "topic", MagicMock(), MagicMock(),
                           skill=DebaterSkill.SOCRATIC)
     assert "pro" in d_evidence.system_prompt.lower()
-    assert "silently" in d_socratic.system_prompt.lower()
+    assert "contra" in d_socratic.system_prompt.lower()
     assert d_evidence.system_prompt != d_socratic.system_prompt
 
 

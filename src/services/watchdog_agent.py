@@ -5,33 +5,10 @@ import json
 import logging
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
-from enum import StrEnum
 from typing import Any
 
 from src.ipc.heartbeat import HeartbeatMonitor
-
-
-class AgentStatus(StrEnum):
-    HEALTHY   = "HEALTHY"
-    TIMEOUT   = "TIMEOUT"
-    DEAD      = "DEAD"
-    RESTARTED = "RESTARTED"
-    STOPPED   = "STOPPED"
-
-
-@dataclass
-class AgentRecord:
-    """Live state of one monitored agent coroutine."""
-    name:     str
-    factory:  Callable[[], Any]
-    timeout:  float
-    task:     asyncio.Task | None = field(default=None, repr=False)
-    status:   AgentStatus = AgentStatus.HEALTHY
-    failures: int = 0
-    # Set to True when a stale-heartbeat restart has been requested but not
-    # yet processed by _handle_done, so we don't cancel the task repeatedly.
-    stale_restart_triggered: bool = False
+from src.services.watchdog_helpers import AgentRecord, AgentStatus
 
 
 class WatchdogAgent:
@@ -40,10 +17,8 @@ class WatchdogAgent:
     staleness; restarts failed agents with backoff up to *max_failures*.
     """
 
-    def __init__(self, max_failures: int = 3,
-                 poll_interval: float = 1.0,
-                 heartbeat_threshold: float = 60.0,
-                 backoff_base: float = 0.5,
+    def __init__(self, max_failures: int = 3, poll_interval: float = 1.0,
+                 heartbeat_threshold: float = 60.0, backoff_base: float = 0.5,
                  logger: logging.Logger | None = None):
         self.max_failures  = max_failures
         self.poll_interval = poll_interval
@@ -53,12 +28,7 @@ class WatchdogAgent:
         self._stop_evt:  asyncio.Event      = asyncio.Event()
         self._heartbeat: HeartbeatMonitor   = HeartbeatMonitor(heartbeat_threshold)
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
-    def register(self, name: str, factory: Callable[[], Any],
-                 timeout: float = 300.0) -> None:
+    def register(self, name: str, factory: Callable[[], Any], timeout: float = 300.0) -> None:
         """Register an agent. *factory* must return a fresh coroutine each call."""
         self._agents.append(AgentRecord(name=name, factory=factory, timeout=timeout))
         self._heartbeat.register(name)
@@ -72,17 +42,12 @@ class WatchdogAgent:
         """Launch all registered agents and begin monitoring."""
         for rec in self._agents:
             self._launch(rec)
-        self._log_event("started", "watchdog", AgentStatus.HEALTHY,
-                        agent_count=len(self._agents))
+        self._log_event("started", "watchdog", AgentStatus.HEALTHY, agent_count=len(self._agents))
         await self._monitor_loop()
 
     def stop(self) -> None:
         """Signal watchdog to stop and cancel all tasks."""
         self._stop_evt.set()
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
 
     def _launch(self, rec: AgentRecord) -> None:
         async def _guarded():
@@ -97,7 +62,6 @@ class WatchdogAgent:
         while not self._stop_evt.is_set():
             await asyncio.sleep(self.poll_interval)
             all_done = True
-
             for rec in self._agents:
                 if rec.status == AgentStatus.STOPPED:
                     continue
@@ -109,7 +73,6 @@ class WatchdogAgent:
                 self._handle_done(rec, exc)
                 if rec.status != AgentStatus.STOPPED:
                     all_done = False
-
             if all_done:
                 self._log_event("all_done", "watchdog", AgentStatus.STOPPED)
                 break
@@ -128,7 +91,6 @@ class WatchdogAgent:
             rec.status = AgentStatus.STOPPED
             self._log_event("completed", rec.name, AgentStatus.STOPPED)
             return
-
         rec.failures += 1
         if isinstance(exc, asyncio.TimeoutError):
             rec.status = AgentStatus.TIMEOUT
@@ -139,11 +101,9 @@ class WatchdogAgent:
             self._log_event("dead", rec.name, AgentStatus.DEAD,
                             error=str(exc) if exc else "cancelled",
                             failure=rec.failures, max=self.max_failures)
-
         if rec.failures >= self.max_failures:
             rec.status = AgentStatus.STOPPED
-            self._log_event("max_failures", rec.name, AgentStatus.STOPPED,
-                            failure=rec.failures)
+            self._log_event("max_failures", rec.name, AgentStatus.STOPPED, failure=rec.failures)
             self._stop_evt.set()
             self._cancel_all()
         else:
@@ -152,12 +112,12 @@ class WatchdogAgent:
     def _restart(self, rec: AgentRecord) -> None:
         if rec.task and not rec.task.done():
             rec.task.cancel()
-        rec.task   = None   # prevent monitor re-processing until _launch fires
+        rec.task   = None
         rec.status = AgentStatus.RESTARTED
-        backoff = self.backoff_base * rec.failures
+        backoff    = self.backoff_base * rec.failures
         self._log_event("restarting", rec.name, AgentStatus.RESTARTED,
                         attempt=rec.failures, backoff_secs=backoff)
-        asyncio.get_event_loop().call_later(backoff, self._launch, rec)
+        asyncio.get_running_loop().call_later(backoff, self._launch, rec)
 
     def _cancel_all(self) -> None:
         for rec in self._agents:
@@ -165,8 +125,7 @@ class WatchdogAgent:
                 rec.task.cancel()
                 self._log_event("cancelled", rec.name, rec.status)
 
-    def _log_event(self, event: str, agent: str,
-                   status: AgentStatus, **extra: Any) -> None:
+    def _log_event(self, event: str, agent: str, status: AgentStatus, **extra: Any) -> None:
         record = {"ts": time.time(), "event": event,
                   "agent": agent, "status": str(status), **extra}
         level = (logging.CRITICAL if event == "max_failures"

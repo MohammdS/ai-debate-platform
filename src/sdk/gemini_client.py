@@ -3,7 +3,12 @@ import json
 import httpx
 
 from src.sdk.base_client import BaseAIClient
-from src.sdk.exceptions import InvalidResponseError, ProviderHTTPError, ProviderTimeoutError, RateLimitError
+from src.sdk.exceptions import (
+    InvalidResponseError,
+    ProviderHTTPError,
+    ProviderTimeoutError,
+    RateLimitError,
+)
 
 
 class GeminiClient(BaseAIClient):
@@ -22,7 +27,7 @@ class GeminiClient(BaseAIClient):
         }
 
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=self.http_timeout) as client:
                 response = await client.post(url, json=payload)
         except httpx.TimeoutException as exc:
             raise ProviderTimeoutError("Gemini request timed out") from exc

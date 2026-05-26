@@ -73,8 +73,9 @@ class LLMService:
         max_tokens, temperature = self._gen_params(role)
         return AIClientFactory.create_client(provider, model, api_key,
                                              max_tokens=max_tokens,
-                                             temperature=temperature)
+                                             temperature=temperature,
+                                             http_timeout=self._cfg_manager.http_timeout)
 
     def get_gatekeeper(self, role: str) -> ApiGatekeeper:
         """Return a gatekeeper with rate limits for the role's provider."""
-        return ApiGatekeeper(provider=self.provider_for(role))
+        return ApiGatekeeper(provider=self.provider_for(role), model=self.model_for(role))

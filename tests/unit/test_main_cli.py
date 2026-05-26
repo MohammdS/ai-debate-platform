@@ -1,12 +1,13 @@
 """Tests for the CLI entry point in src/main.py."""
-import pytest
 import sys
+
+import pytest
 
 
 def test_version_flag_prints_and_exits(capsys):
     """--version prints the version string and exits with code 0."""
-    from src.shared.version import VERSION
     from src.main import main
+    from src.shared.version import VERSION
 
     sys.argv = ["debate", "--version"]
     with pytest.raises(SystemExit) as exc_info:

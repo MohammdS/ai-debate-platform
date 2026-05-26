@@ -17,6 +17,10 @@
     "gpt-3.5-turbo":          { "input_per_1m": 0.50,  "output_per_1m": 1.50  },
     "default":                { "input_per_1m": 0.50,  "output_per_1m": 1.50  }
   },
+  "openrouter": {
+    "openai/gpt-oss-120b:free": { "input_per_1m": 0.00, "output_per_1m": 0.00 },
+    "default":                  { "input_per_1m": 0.00, "output_per_1m": 0.00 }
+  },
   "zai": {
     "default":                { "input_per_1m": 0.10,  "output_per_1m": 0.10  }
   },
