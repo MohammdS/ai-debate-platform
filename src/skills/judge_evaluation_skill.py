@@ -21,9 +21,10 @@ class JudgeEvaluationSkill(BaseSkill):
     name = "judge_evaluation"
     description = "Structures judge evaluation; penalises invented or unsupported named sources"
 
-    def can_handle(self, context: SkillContext) -> bool:
+    def score(self, context: SkillContext) -> float:
         cfg = self._get_config()
-        return context.skill_type == cfg.get("skill_type_trigger", _DEFAULT_TRIGGER)
+        trigger = cfg.get("skill_type_trigger", _DEFAULT_TRIGGER)
+        return 0.85 if context.skill_type == trigger else 0.0
 
     def run(self, context: SkillContext) -> SkillResult:
         cfg = self._get_config()

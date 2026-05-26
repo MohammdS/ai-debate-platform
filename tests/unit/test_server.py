@@ -49,32 +49,38 @@ def test_safe_error_leaves_normal_messages_intact():
 
 def test_debate_semaphore_blocks_concurrent_request():
     """
-    _debate_semaphore must reject a second debate request immediately
-    (acquire(blocking=False) returns False when the semaphore is held).
+    _debate_semaphore must reject a request when all slots are held.
+    With _MAX_CONCURRENT slots, acquiring _MAX_CONCURRENT times exhausts
+    the semaphore; the next acquire must return False.
     """
     from src.gui import server as srv
 
-    # Reset to known state — ensure semaphore is released
-    while srv._debate_semaphore._value < 1:  # type: ignore[attr-defined]
+    limit = srv._MAX_CONCURRENT
+
+    # Reset to known state — drain any partial holds
+    while srv._debate_semaphore._value < limit:  # type: ignore[attr-defined]
         srv._debate_semaphore.release()
 
-    # Simulate first request holding the semaphore
-    acquired = srv._debate_semaphore.acquire(blocking=False)
-    assert acquired, "First request should acquire the semaphore"
+    # Exhaust all available slots
+    for _ in range(limit):
+        ok = srv._debate_semaphore.acquire(blocking=False)
+        assert ok, "Should be able to acquire up to _MAX_CONCURRENT times"
 
     try:
-        # Second request should fail immediately
-        second = srv._debate_semaphore.acquire(blocking=False)
-        assert not second, "Second concurrent request should be rejected"
+        # All slots used — next request must be rejected
+        over_limit = srv._debate_semaphore.acquire(blocking=False)
+        assert not over_limit, "Request beyond _MAX_CONCURRENT should be rejected"
     finally:
-        srv._debate_semaphore.release()
+        for _ in range(limit):
+            srv._debate_semaphore.release()
 
 
 def test_debate_semaphore_releases_after_use():
-    """After the first debate finishes, a new request can acquire the semaphore."""
+    """After a debate finishes, a new request can acquire the semaphore."""
     from src.gui import server as srv
 
-    while srv._debate_semaphore._value < 1:  # type: ignore[attr-defined]
+    limit = srv._MAX_CONCURRENT
+    while srv._debate_semaphore._value < limit:  # type: ignore[attr-defined]
         srv._debate_semaphore.release()
 
     # First debate: acquire and release

@@ -33,8 +33,12 @@ class BaseSkill(ABC):
         return _SKILL_PROMPTS.get(self.name, {})
 
     @abstractmethod
+    def score(self, context: SkillContext) -> float:
+        """Return a relevance score 0.0–1.0. 0.0 means do not run this skill."""
+
     def can_handle(self, context: SkillContext) -> bool:
-        """Return True if this skill applies to the given context."""
+        """Backward-compatible gate. True iff score() > 0.0."""
+        return self.score(context) > 0.0
 
     @abstractmethod
     def run(self, context: SkillContext) -> SkillResult:

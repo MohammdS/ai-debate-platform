@@ -10,10 +10,21 @@ class SummarizationSkill(BaseSkill):
     name = "summarization"
     description = "Summarizes the debate so far for context"
 
-    def can_handle(self, context: SkillContext) -> bool:
+    def score(self, context: SkillContext) -> float:
         cfg = self._get_config()
         min_entries = cfg.get("min_transcript_entries", _DEFAULT_MIN_ENTRIES)
-        return len(context.transcript) >= min_entries
+        if len(context.transcript) < min_entries:
+            return 0.0
+        s = 0.35
+        if len(context.transcript) >= 8:
+            s += 0.12
+        if len(context.transcript) >= 12:
+            s += 0.08
+        if context.round_num >= 5:
+            s += 0.05
+        if context.skill_type == "judge":
+            s += 0.20
+        return min(0.62, s)
 
     def run(self, context: SkillContext) -> SkillResult:
         cfg = self._get_config()

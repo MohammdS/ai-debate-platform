@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import uuid
 
 from src.models.debate import DebateSession, Message
 from src.sdk.llm_service import LLMService
@@ -103,6 +104,7 @@ def build_debate_services(payload: dict):
 
 async def run_debate_from_payload(payload: dict) -> dict:
     """Run a full debate via the IPC orchestrator (watchdog-monitored) and return the result."""
+    session_id = uuid.uuid4().hex[:8]
     topic, debater_a, debater_b, judge, rounds, model_info = build_debate_services(payload)
     orchestrator = DebateOrchestrator(debater_a, debater_b, judge, rounds)
 
@@ -117,13 +119,23 @@ async def run_debate_from_payload(payload: dict) -> dict:
 
     verdict = verdict_box[0] if verdict_box else "Debate did not complete."
     stats = _merge_stats(debater_a.gatekeeper, debater_b.gatekeeper, judge.gatekeeper)
-    exporter = DebateExporter()
-    exporter.export_to_markdown(topic, orchestrator.history, verdict,
-                                model_info=model_info, token_stats=stats)
-    exporter.export_to_json(topic, orchestrator.history, verdict,
-                            model_info=model_info, token_stats=stats)
-    return {"topic": topic, "history": orchestrator.history, "verdict": verdict,
-            "model_info": model_info, "token_stats": stats}
+
+    def _export(results_dir: str) -> None:
+        exp = DebateExporter(results_dir=results_dir)
+        exp.export_to_markdown(topic, orchestrator.history, verdict,
+                               model_info=model_info, token_stats=stats)
+        exp.export_to_json(topic, orchestrator.history, verdict,
+                           model_info=model_info, token_stats=stats)
+        exp.export_skill_log(
+            topic,
+            debater_a.skill_log, f"Pro ({debater_a.stance})",
+            debater_b.skill_log, f"Contra ({debater_b.stance})",
+        )
+
+    _export(f"results/{session_id}")   # session-specific (for concurrent access)
+    _export("results")                 # legacy path (most recent debate)
+    return {"session_id": session_id, "topic": topic, "history": orchestrator.history,
+            "verdict": verdict, "model_info": model_info, "token_stats": stats}
 
 
 async def stream_debate_from_payload(payload: dict):
@@ -134,13 +146,14 @@ async def stream_debate_from_payload(payload: dict):
     onto event_queue as each argument is relayed. Yields NDJSON-compatible
     event dicts that the GUI reads via fetch + ReadableStream.
     """
+    session_id = uuid.uuid4().hex[:8]
     topic, debater_a, debater_b, judge, rounds, model_info = build_debate_services(payload)
 
     event_queue: asyncio.Queue = asyncio.Queue()
     judge.event_queue = event_queue
 
     orchestrator = DebateOrchestrator(debater_a, debater_b, judge, rounds)
-    yield {"type": "start", "topic": topic, "model_info": model_info}
+    yield {"type": "start", "session_id": session_id, "topic": topic, "model_info": model_info}
 
     debate_task = asyncio.create_task(orchestrator.run_debate())
     stream_timeout = _cfg.stream_event_timeout
@@ -155,13 +168,24 @@ async def stream_debate_from_payload(payload: dict):
 
     verdict = await debate_task
     stats = _merge_stats(debater_a.gatekeeper, debater_b.gatekeeper, judge.gatekeeper)
-    exporter = DebateExporter()
-    exporter.export_to_markdown(topic, orchestrator.history, verdict,
-                                model_info=model_info, token_stats=stats)
-    exporter.export_to_json(topic, orchestrator.history, verdict,
-                            model_info=model_info, token_stats=stats)
+
+    def _export(results_dir: str) -> None:
+        exp = DebateExporter(results_dir=results_dir)
+        exp.export_to_markdown(topic, orchestrator.history, verdict,
+                               model_info=model_info, token_stats=stats)
+        exp.export_to_json(topic, orchestrator.history, verdict,
+                           model_info=model_info, token_stats=stats)
+        exp.export_skill_log(
+            topic,
+            debater_a.skill_log, f"Pro ({debater_a.stance})",
+            debater_b.skill_log, f"Contra ({debater_b.stance})",
+        )
+
+    _export(f"results/{session_id}")
+    _export("results")
     yield {
         "type": "verdict",
+        "session_id": session_id,
         "topic": topic,
         "history": orchestrator.history,
         "verdict": verdict,

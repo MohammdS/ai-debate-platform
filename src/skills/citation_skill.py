@@ -10,6 +10,8 @@ opponent-challenge suffix is rate-limited.
 """
 from __future__ import annotations
 
+import re
+
 from src.skills.base_skill import BaseSkill
 from src.skills.models import SkillContext, SkillResult
 
@@ -20,13 +22,29 @@ _DEFAULT_CHALLENGE_TEMPLATE = (
 _DEFAULT_SNIPPET_CHARS = 60
 _DEFAULT_CHALLENGE_INTERVAL = 3  # rounds between source challenges
 
+_FACTUAL_CLAIM_SIGNAL = re.compile(
+    r"\b(?:according to|study shows|research finds|data shows|scientists say|"
+    r"experts agree|statistics show|the evidence|it has been shown)\b|"
+    r"\d+(?:\.\d+)?\s*%",
+    re.I,
+)
+
 
 class CitationSkill(BaseSkill):
     name = "citation"
     description = "Reminds debater to cite sources; limits source-challenges to every N rounds"
 
-    def can_handle(self, context: SkillContext) -> bool:
-        return True
+    def score(self, context: SkillContext) -> float:
+        s = 0.40
+        if _FACTUAL_CLAIM_SIGNAL.search(context.opponent_last_message):
+            s += 0.25
+        if context.skill_type == "evidence_based":
+            s += 0.20
+        if context.round_num == 1:
+            s -= 0.15
+        if context.skill_type == "judge":
+            s -= 0.30
+        return max(0.10, min(1.0, s))
 
     def run(self, context: SkillContext) -> SkillResult:
         cfg = self._get_config()

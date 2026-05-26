@@ -9,7 +9,7 @@ class DebateExporter:
 
     def __init__(self, results_dir: str = "results"):
         self.results_dir = Path(results_dir)
-        self.results_dir.mkdir(exist_ok=True)
+        self.results_dir.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
     # Public helpers
@@ -59,6 +59,26 @@ class DebateExporter:
                 f.write("\n\n## TOKEN USAGE\n```\n")
                 f.write(self.format_token_summary(token_stats))
                 f.write("\n```\n")
+        return file_path
+
+    def export_skill_log(
+        self, topic: str,
+        debater_a_log: list[dict], debater_a_label: str,
+        debater_b_log: list[dict], debater_b_label: str,
+        filename: str = "skill_log.md",
+    ) -> Path:
+        """Saves per-round skill selections for both debaters as a Markdown file."""
+        file_path = self.results_dir / filename
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(f"# Skill Usage Log: {topic}\n\n")
+            for label, log in ((debater_a_label, debater_a_log), (debater_b_label, debater_b_log)):
+                f.write(f"## {label}\n\n")
+                f.write("| Turn | Round | Skills Selected |\n")
+                f.write("|------|-------|-----------------|\n")
+                for entry in log:
+                    skills = ", ".join(entry["skills"]) if entry["skills"] else "*(none)*"
+                    f.write(f"| {entry['turn']:>4} | {entry['round']:>5} | {skills} |\n")
+                f.write("\n")
         return file_path
 
     def export_to_json(
