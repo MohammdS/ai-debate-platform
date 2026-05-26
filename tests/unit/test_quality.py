@@ -372,7 +372,7 @@ class TestWordLimitInSystemPrompt:
         # Response structure forbids inventing sources
         assert "do not invent sources" in prompt
         # Style policy is present
-        assert "professional style rules" in prompt
+        assert "debate style rules" in prompt
 
     def test_enforce_word_limit_truncates_long_response(self):
         import logging
