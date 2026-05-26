@@ -167,29 +167,34 @@ def test_judge_prompt_covers_five_penalisation_categories():
     assert "rebuttal" in lower,                                 "missing: weak rebuttals"
 
 
-# ── 11. STYLE_POLICY forbids aggressive / dramatic language ───────────────────
+# ── 11. STYLE_POLICY promotes confrontational, winning-focused language ───────
 
-def test_style_policy_prohibits_aggressive_language():
+def test_style_policy_promotes_confrontational_language():
     lower = STYLE_POLICY.lower()
-    assert "aggressive" in lower or "hostile" in lower or "personal attack" in lower
+    # Must encourage fighting to win, not diplomatic hedging
+    assert "win" in lower or "bold" in lower or "sharp" in lower
+    # Must forbid weak hedging phrases
+    assert "one might argue" in lower or "perhaps" in lower or "diplomatic" in lower \
+        or "hedging" in lower
 
 
 # ── 12. RESPONSE_STRUCTURE defines all 4 required parts ──────────────────────
 
 def test_response_structure_has_four_parts():
-    """RESPONSE_STRUCTURE now uses numbered natural-prose guidelines (no bold headers)."""
+    """RESPONSE_STRUCTURE uses numbered natural-prose guidelines (no bold headers)."""
     lower = RESPONSE_STRUCTURE.lower()
-    # 1. lead with own argument
-    assert "lead with your own argument" in lower or "lead with" in lower, \
-        "missing: instruction to lead with own argument"
-    # 2. challenge the previous point
-    assert "challenge the previous point" in lower or "challenge" in lower, \
+    # 1. open hard / lead with strongest point
+    assert "immediately" in lower or "strongest point" in lower or "hit hard" in lower, \
+        "missing: instruction to open with strongest point"
+    # 2. expose flaw / challenge the previous point
+    assert "expose" in lower or "flaw" in lower or "wrong" in lower or "challenge" in lower, \
         "missing: instruction to challenge previous point"
     # 3. evidence or reasoning
     assert "evidence" in lower, "missing: evidence / reasoning"
     # 4. closing sentence
-    assert "close with" in lower or "closing" in lower, "missing: closing instruction"
-    # must NOT instruct bold headers (new format is natural prose)
+    assert "close with" in lower or "closing" in lower or "knockout" in lower, \
+        "missing: closing instruction"
+    # must NOT instruct bold headers (format is natural prose)
     assert "**rebuttal:**" not in lower, "old bold-header format still present"
 
 

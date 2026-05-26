@@ -151,7 +151,7 @@ async def test_debater_regenerates_once_for_banned_phrase():
     assert result.startswith("The cited claim fails")
     assert gatekeeper.execute.await_count == 2
     retry_messages = gatekeeper.execute.call_args_list[1].args[1]
-    assert "Rewrite the response without banned debate clichés" in retry_messages[-1]["content"]
+    assert "Rewrite the response without weak debate clichés" in retry_messages[-1]["content"]
 
 
 @pytest.mark.asyncio
@@ -170,7 +170,7 @@ async def test_debater_b_regenerates_once_for_echoing_previous_response():
     assert result.startswith("Madrid's advantage")
     assert gatekeeper.execute.await_count == 2
     retry_messages = gatekeeper.execute.call_args_list[1].args[1]
-    assert "Rewrite without echoing the previous response" in retry_messages[-1]["content"]
+    assert "Rewrite with completely new wording" in retry_messages[-1]["content"]
 
 
 @pytest.mark.asyncio

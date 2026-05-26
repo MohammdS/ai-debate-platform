@@ -31,15 +31,20 @@ _DEFAULT_POOL: list[str] = [
 ]
 _fact_safety = FactSafetyFilter()
 _STRICT_REWRITE = (
-    "Rewrite the response without banned debate clichés. "
-    "Do NOT open the Rebuttal with 'That claim…', 'That argument…', 'That assessment…', "
+    "Rewrite the response without weak debate clichés. "
+    "Do NOT open with 'That claim…', 'That argument…', 'That assessment…', "
     "'That position…', or any variant of '[noun] overlooks/ignores/equates/fails…'. "
-    "Instead open with the counter-evidence or counter-fact directly — state what is actually true, "
-    "then explain why it contradicts the previous point. "
-    "Example good openings: 'Counter-evidence shows…', 'In practice…', 'History contradicts this:', "
-    "'[Specific fact] demonstrates…', 'The actual record shows…'"
+    "Instead hit directly with counter-evidence or a sharp counter-fact. "
+    "Be blunt and aggressive — state what is actually true, then explain why it "
+    "demolishes the previous point. "
+    "Example strong openings: 'The record flatly contradicts this:', "
+    "'[Specific fact] proves the opposite:', 'This falls apart because:', "
+    "'The real data shows:', 'History disproves this entirely:'"
 )
-_ECHO_REWRITE = "Rewrite without echoing the previous response. Use new wording."
+_ECHO_REWRITE = (
+    "Rewrite with completely new wording and a sharper attack angle. "
+    "Do not repeat the same argument — escalate."
+)
 
 
 class Debater(DebaterIpcMixin, BaseAgent):
