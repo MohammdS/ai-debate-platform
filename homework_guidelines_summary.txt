@@ -1,0 +1,45 @@
+# Software Submission Guidelines - Summary for Homework
+
+The following summary outlines the key requirements and best practices to follow when working on homework assignments, based on the "Guidelines for Writing Professional Software at the Highest Level of Excellence".
+
+## 1. Project Structure and Mandatory Files
+- **Root Directory:** Must include a `README.md` file (serving as a user manual with installation, usage, and configuration instructions).
+- **Documentation Folder (`/docs`):**
+    - `PRD.md`: Product Requirements Document (goals, user stories, metrics, constraints).
+    - `PLAN.md`: Technical design and architecture (C4 models, UML, ADRs).
+    - `TODO.md`: Task tracking with status, priority, and "Definition of Done".
+    - `PRD_<mechanism>.md`: Dedicated PRDs for complex algorithms or core mechanisms.
+- **Source Code (`/src`):** Organized modularly, typically with an SDK layer, services (business logic), and shared utilities.
+- **Tests Folder (`/tests`):** Mirroring the source structure with unit and integration tests.
+- **Configuration (`/config`):** External configuration files (JSON/YAML).
+- **Dependency Management:** `pyproject.toml` (source of truth) and `uv.lock`.
+
+## 2. Code Quality and Architecture
+- **Modularity:** Use a layered or feature-based architecture.
+- **File Size:** Maximum of 150 lines of code per file. Split files if they exceed this limit.
+- **SDK Pattern:** Use a single entry point (SDK layer) for all business logic access (CLI, GUI, etc.).
+- **Naming & Comments:** Use descriptive names for variables and functions. Include Docstrings for every function, class, and module.
+- **Principles:** Strictly follow DRY (Don't Repeat Yourself) and Single Responsibility principles.
+
+## 3. Testing and Quality Assurance
+- **TDD (Test-Driven Development):** Write tests before or alongside implementation (Red-Green-Refactor).
+- **Code Coverage:** Minimum of 85% global coverage. Coverage should include statements, branches, and paths.
+- **Edge Cases:** Explicitly identify, document, and test edge cases.
+- **Mocks:** Use mocks for external dependencies (APIs, databases).
+- **Automated Reports:** Generate and save automated test results.
+
+## 4. Security and Configuration
+- **No Hardcoding:** Never hardcode secrets, API keys, or configuration values in the source code.
+- **Environment Variables:** Use `.env` for secrets (git-ignored) and provide a `.env-example` with dummy values.
+- **API Gatekeeper:** Use a centralized gatekeeper for all external API calls to manage rate limiting and retries.
+- **Linter:** Ensure code passes `ruff check` with zero violations.
+
+## 5. Version Control and AI Usage
+- **Git Flow:** Use meaningful commit messages, feature branches, and Pull Requests for code reviews. Use tags for versions.
+- **AI/LLM Documentation:** Maintain a `Prompt Engineering Log` documenting the prompts used, goals, and results when using AI for development.
+- **Package Manager:** Use `uv` for all package management tasks (`uv sync`, `uv add`, `uv run`).
+
+## 6. Research and Analysis
+- **Sensitivity Analysis:** For algorithmic work, perform systematic testing of parameters.
+- **Results Analysis:** Use Jupyter Notebooks for analyzing and visualizing experiment results.
+- **Visualizations:** Use high-quality graphs with clear labels and legends (e.g., Matplotlib, Seaborn).
