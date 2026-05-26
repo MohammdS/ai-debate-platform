@@ -106,6 +106,7 @@ async def run_debate_from_payload(payload: dict) -> dict:
     topic, debater_a, debater_b, judge, rounds, model_info = build_debate_services(payload)
     orchestrator = DebateOrchestrator(debater_a, debater_b, judge, rounds)
 
+    watchdog = WatchdogAgent()
     verdict_box: list[str] = []
 
     async def _run_and_capture():
@@ -115,10 +116,14 @@ async def run_debate_from_payload(payload: dict) -> dict:
     await watchdog.start()
 
     verdict = verdict_box[0] if verdict_box else "Debate did not complete."
+    stats = _merge_stats(debater_a.gatekeeper, debater_b.gatekeeper, judge.gatekeeper)
     exporter = DebateExporter()
-    exporter.export_to_markdown(topic, orchestrator.history, verdict, model_info=model_info)
-    exporter.export_to_json(topic, orchestrator.history, verdict, model_info=model_info)
-    return {"topic": topic, "history": orchestrator.history, "verdict": verdict, "model_info": model_info}
+    exporter.export_to_markdown(topic, orchestrator.history, verdict,
+                                model_info=model_info, token_stats=stats)
+    exporter.export_to_json(topic, orchestrator.history, verdict,
+                            model_info=model_info, token_stats=stats)
+    return {"topic": topic, "history": orchestrator.history, "verdict": verdict,
+            "model_info": model_info, "token_stats": stats}
 
 
 async def stream_debate_from_payload(payload: dict):
@@ -149,13 +154,17 @@ async def stream_debate_from_payload(payload: dict):
         yield event
 
     verdict = await debate_task
+    stats = _merge_stats(debater_a.gatekeeper, debater_b.gatekeeper, judge.gatekeeper)
     exporter = DebateExporter()
-    exporter.export_to_markdown(topic, orchestrator.history, verdict, model_info=model_info)
-    exporter.export_to_json(topic, orchestrator.history, verdict, model_info=model_info)
+    exporter.export_to_markdown(topic, orchestrator.history, verdict,
+                                model_info=model_info, token_stats=stats)
+    exporter.export_to_json(topic, orchestrator.history, verdict,
+                            model_info=model_info, token_stats=stats)
     yield {
         "type": "verdict",
         "topic": topic,
         "history": orchestrator.history,
         "verdict": verdict,
         "model_info": model_info,
+        "token_stats": stats,
     }

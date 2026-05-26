@@ -57,8 +57,13 @@ class DebateGuiHandler(SimpleHTTPRequestHandler):
 
     def _stream_debate(self):
         if not _debate_semaphore.acquire(blocking=False):
+            # Rejection: open stream, send error, then close cleanly.
             self._open_stream()
-            self._write_line({"type": "error", "error": "A debate is already running. Please wait."})
+            try:
+                self._write_line({"type": "error", "error": "A debate is already running. Please wait."})
+                self._write_line({"type": "_done"})
+            except OSError:
+                pass  # client disconnected before we could respond
             return
         try:
             payload = self._read_json()
@@ -68,6 +73,7 @@ class DebateGuiHandler(SimpleHTTPRequestHandler):
             try:
                 if not self.wfile.closed:
                     self._write_line({"type": "error", "error": self._safe_error(exc)})
+                    self._write_line({"type": "_done"})
             except OSError:
                 pass  # client already disconnected — nothing to do
         finally:

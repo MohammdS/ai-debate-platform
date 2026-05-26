@@ -7,6 +7,7 @@ from src.services.base_agent import BaseAgent, DebaterSkill, enforce_word_limit,
 from src.services.context_compressor import ContextCompressor
 from src.services.debate_memory import DebateMemory
 from src.services.debater_ipc import DebaterIpcMixin
+from src.services.debater_prompts import build_system_prompt as _build_generic_prompt, build_turn_header
 from src.services.response_cleanup import (
     repeated_word_run,
     strip_debate_labels,
@@ -29,7 +30,15 @@ _DEFAULT_POOL: list[str] = [
     "SocraticSkill", "SummarizationSkill", "CitationSkill", "ToneModerationSkill",
 ]
 _fact_safety = FactSafetyFilter()
-_STRICT_REWRITE = "Rewrite the response without banned debate clichés. Start directly with the argument."
+_STRICT_REWRITE = (
+    "Rewrite the response without banned debate clichés. "
+    "Do NOT open the Rebuttal with 'That claim…', 'That argument…', 'That assessment…', "
+    "'That position…', or any variant of '[noun] overlooks/ignores/equates/fails…'. "
+    "Instead open with the counter-evidence or counter-fact directly — state what is actually true, "
+    "then explain why it contradicts the previous point. "
+    "Example good openings: 'Counter-evidence shows…', 'In practice…', 'History contradicts this:', "
+    "'[Specific fact] demonstrates…', 'The actual record shows…'"
+)
 _ECHO_REWRITE = "Rewrite without echoing the previous response. Use new wording."
 
 
@@ -56,24 +65,27 @@ class Debater(DebaterIpcMixin, BaseAgent):
         )
 
     def _build_system_prompt(self) -> str:
+        # Core professional, domain-neutral system prompt
+        base = _build_generic_prompt(
+            name=self.name,
+            topic=self.topic,
+            stance=self.stance,
+            opponent_stance=self.opponent_stance,
+            word_min=80,
+            word_max=_MAX_WORDS,
+        )
+        # Append optional skill-specific note from skills.json (domain-neutral supplement)
         role_key = "pro" if self.skill == DebaterSkill.EVIDENCE_BASED else "contra"
         agent_cfg = get_agent_prompt(role_key)
-        stance_directive = (
-            agent_cfg.get("stance_directive", "")
-            .replace("{stance}", self.stance)
-            .replace("{opponent_stance}", self.opponent_stance)
-        )
-        rules = "\n".join(
-            f"- {r}".replace("{stance}", self.stance).replace("{opponent_stance}", self.opponent_stance)
-            for r in agent_cfg.get("rules", [])
-        )
-        return (
-            f"ROLE: {role_key.upper()} debater in a formal debate.\n"
-            f"TOPIC: {self.topic}\n"
-            f"WORD LIMIT: Your response MUST NOT exceed {_MAX_WORDS} words. Be concise.\n"
-            f"{stance_directive}\n\n"
-            f"RULES:\n{rules}"
-        )
+        skill_note = agent_cfg.get("skill_note", "")
+        if skill_note:
+            skill_note = (
+                skill_note
+                .replace("{stance}", self.stance)
+                .replace("{opponent_stance}", self.opponent_stance)
+            )
+            return f"{base}\n\nSKILL FOCUS:\n{skill_note}"
+        return base
 
     def _build_skill_guidance(self, history: list[dict], round_num: int) -> tuple[str, list[str]]:
         opponent_msg = ""
@@ -128,19 +140,23 @@ class Debater(DebaterIpcMixin, BaseAgent):
             except Exception as exc:  # noqa: BLE001
                 self.logger.warning("[%s] web search failed (round %d): %s", self.name, round_num, exc)
         skill_guidance, selected_names = self._build_skill_guidance(enriched_history, round_num)
-        messages = self._compressor.compress(enriched_history, self.system_prompt, skill_guidance)
+        turn_hdr = build_turn_header(self.topic, self.stance, self.opponent_stance)
+        messages = self._compressor.compress(
+            enriched_history, self.system_prompt, skill_guidance, turn_header=turn_hdr
+        )
         response = await self.generate(messages)
         previous = next((e.get("content", "") for e in reversed(enriched_history) if e.get("role") == "user"), "")
+        # Strip structural labels FIRST so validation sees clean prose, not "**Rebuttal:** The assertion that…"
+        response = strip_debate_labels(response)
         tail = [{"role": "assistant", "content": response}]
         if validate_debate_response(response):
             response = await self.generate(messages + tail + [{"role": "user", "content": _STRICT_REWRITE}])
+            response = strip_debate_labels(response)
         if self.skill != DebaterSkill.EVIDENCE_BASED and repeated_word_run(response, previous):
             response = await self.generate(messages + tail + [{"role": "user", "content": _ECHO_REWRITE}])
+            response = strip_debate_labels(response)
         response = _fact_safety.clean(response, has_web_evidence=has_web_evidence)
-        response = strip_debate_labels(response)
         response = enforce_word_limit(response, _MAX_WORDS, self.name, self.logger)
         self._memory.record_turn(self.name, response)
-        if _cfg.get_value("skills", "log_skills_in_transcript", False) and selected_names:
-            response += f"\n\n[Skills: {', '.join(selected_names)}]"
         return response
 

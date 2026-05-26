@@ -219,3 +219,28 @@ async def test_debate_memory_records_turns():
     # Memory should have recorded the turn
     assert hasattr(debater, '_memory')
     assert len(debater._memory.pro_claims) >= 0  # May be 0 if content too short
+
+
+# ── DebaterIpcMixin error paths ────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_debater_run_raises_without_channels():
+    """run() raises RuntimeError when inbox/outbox are not set."""
+    client = MockAIClient("test", "key")
+    gatekeeper = ApiGatekeeper(rpm_limit=1000)
+    debater = Debater("Pro", "AI is good", "AI debate", client, gatekeeper)
+    with pytest.raises(RuntimeError, match="channels must be set"):
+        await debater.run()
+
+
+@pytest.mark.asyncio
+async def test_debater_run_exits_on_inbox_timeout():
+    """run() exits cleanly when the inbox times out (no SHUTDOWN received)."""
+    from src.ipc.channel import IpcChannel
+    client = MockAIClient("test", "key")
+    gatekeeper = ApiGatekeeper(rpm_limit=1000)
+    debater = Debater("Pro", "AI is good", "AI debate", client, gatekeeper)
+    debater.inbox = IpcChannel("in", timeout=0.05)   # very short timeout
+    debater.outbox = IpcChannel("out", timeout=5.0)
+    # Should return without raising — timeout is handled gracefully
+    await debater.run()

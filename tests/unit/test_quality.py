@@ -276,12 +276,13 @@ class TestCitationSkillThrottle:
 
 class TestFactSafetyFilter:
 
-    def test_rewrites_inflated_ballon_dor_count(self):
+    def test_rewrites_decimal_percentage_claim(self):
+        """Decimal-precision percentage claims are hedged — domain-neutral pattern."""
         f = FactSafetyFilter()
-        text = "La Masia produced 17 Ballon d'Or winners."
+        text = "Automation will eliminate 47.3% of current occupations."
         result = f.clean(text)
-        assert "17" not in result
-        assert "multiple Ballon d'Or" in result
+        assert "47.3%" not in result
+        assert "significant percentage" in result
 
     def test_rewrites_two_digit_percentage_claim(self):
         f = FactSafetyFilter()
@@ -303,12 +304,13 @@ class TestFactSafetyFilter:
         result = f.clean(text)
         assert result == text
 
-    def test_rewrites_fifa_superlative_claim(self):
+    def test_rewrites_year_attributed_study_citation(self):
+        """Year-attributed study citations are hedged to 'recent research' — domain-neutral."""
         f = FactSafetyFilter()
-        text = "FIFA named Barcelona the best club of the century."
+        text = "A 2021 study by Oxford concluded that remote work raises productivity."
         result = f.clean(text)
-        assert "FIFA named" not in result
-        assert "reportedly FIFA" in result
+        assert "2021 study" not in result
+        assert "recent research" in result
 
     def test_leaves_safe_text_unchanged(self):
         f = FactSafetyFilter()
@@ -325,11 +327,12 @@ class TestFactSafetyFilter:
         assert f.clean("") == ""
 
     def test_multiple_rewrites_in_one_pass(self):
+        """Both a decimal percentage and a year-attributed study in the same text are hedged."""
         f = FactSafetyFilter()
-        text = "La Masia produced 17 Ballon d'Or winners and FIFA named them best."
+        text = "A 2019 report by MIT found that 63.7% of emissions come from industry."
         result = f.clean(text)
-        assert "17" not in result
-        assert "FIFA named" not in result
+        assert "63.7%" not in result
+        assert "2019 report" not in result
 
     def test_supported_web_evidence_skips_rewrite(self):
         f = FactSafetyFilter()
@@ -357,15 +360,19 @@ class TestWordLimitInSystemPrompt:
         assert "word" in debater.system_prompt.lower()
 
     def test_system_prompt_contains_style_and_evidence_rules(self):
+        """System prompt must contain professional style rules and fact-safety policy."""
         from src.sdk.mock_client import MockAIClient
         from src.services.debater import Debater
         from src.shared.gatekeeper import ApiGatekeeper
 
         debater = Debater("Pro", "pro-AI", "AI topic", MockAIClient("test", "key"), ApiGatekeeper())
         prompt = debater.system_prompt.lower()
-        assert "my opponent" in prompt
+        # Fact-safety policy is embedded
+        assert "never invent" in prompt
+        # Response structure forbids inventing sources
         assert "do not invent sources" in prompt
-        assert "no verified evidence available" in prompt
+        # Style policy is present
+        assert "professional style rules" in prompt
 
     def test_enforce_word_limit_truncates_long_response(self):
         import logging
@@ -396,12 +403,12 @@ class TestGetArgumentQualityPipeline:
 
     @pytest.mark.asyncio
     async def test_fact_safety_applied_before_word_limit(self):
-        """get_argument() hedges fake stats AND enforces word count."""
+        """get_argument() hedges domain-neutral fake stats AND enforces word count."""
         from src.services.debater import _MAX_WORDS, Debater
 
-        # Fabricate a very long response containing a fake stat
+        # Fabricate a very long response with a decimal-precision fake stat (domain-neutral)
         fake_response = (
-            "La Masia produced 17 Ballon d'Or winners. "
+            "Research confirms that 47.3% of all jobs will be automated within a decade. "
             + " ".join(["filler"] * 250)
         )
         mock_gk = MagicMock()
@@ -410,8 +417,8 @@ class TestGetArgumentQualityPipeline:
         debater = Debater("Pro", "yes", "AI topic", MagicMock(), mock_gk)
         result = await debater.get_argument([{"role": "user", "content": "Make a point"}])
 
-        # Fake stat must be gone
-        assert "17 Ballon" not in result
+        # Decimal-precision fake stat must be hedged
+        assert "47.3%" not in result
         # Strip optional skills annotation before counting words
         core = result.split("\n\n[Skills:")[0]
         # Response body must be within word limit (allow the appended "...")
