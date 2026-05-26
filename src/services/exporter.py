@@ -34,7 +34,8 @@ class DebateExporter:
 
     def export_to_markdown(
         self, topic: str, history: list[dict[str, str]], verdict: str,
-        filename: str = "debate_transcript.md", model_info: dict | None = None
+        filename: str = "debate_transcript.md", model_info: dict | None = None,
+        token_stats: dict | None = None,
     ):
         """Saves the debate history as a Markdown file."""
         file_path = self.results_dir / filename
@@ -62,7 +63,8 @@ class DebateExporter:
 
     def export_to_json(
         self, topic: str, history: list[dict[str, str]], verdict: str,
-        filename: str = "debate.json", model_info: dict | None = None
+        filename: str = "debate.json", model_info: dict | None = None,
+        token_stats: dict | None = None,
     ):
         """Saves the debate as a JSON file."""
         data: dict = {

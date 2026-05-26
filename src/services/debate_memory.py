@@ -1,11 +1,11 @@
 """DebateMemory — compact per-debater memory of the debate so far.
 
 Tracks:
-- pro_claims: list of opening-phrase fingerprints from Pro's turns
-- contra_claims: list of opening-phrase fingerprints from Contra's turns
+- pro_claims: deque of opening-phrase fingerprints from Pro's turns
+- contra_claims: deque of opening-phrase fingerprints from Contra's turns
 - used_evidence: set of evidence snippets already cited
+- used_urls: set of URLs already fetched by web search
 - repeated_phrases: phrases detected as repeated across turns
-- unresolved_issues: issues raised but not directly addressed
 
 Fully deterministic — no LLM calls. Used by ContextCompressor to
 enrich the prompt with structured anti-repetition context.
@@ -13,6 +13,7 @@ enrich the prompt with structured anti-repetition context.
 from __future__ import annotations
 
 import re
+from collections import deque
 
 _FINGERPRINT_CHARS = 80
 _MIN_PHRASE_LEN = 15
@@ -23,10 +24,10 @@ class DebateMemory:
     """Compact structured memory of a running debate."""
 
     def __init__(self) -> None:
-        self.pro_claims: list[str] = []
-        self.contra_claims: list[str] = []
+        self.pro_claims: deque[str] = deque(maxlen=_MAX_TRACKED)
+        self.contra_claims: deque[str] = deque(maxlen=_MAX_TRACKED)
         self.used_evidence: set[str] = set()
-        self.used_urls: set[str] = set()          # URLs already cited in search results
+        self.used_urls: set[str] = set()
         self.repeated_phrases: list[str] = []
         self._seen_fingerprints: set[str] = set()
 
@@ -43,13 +44,9 @@ class DebateMemory:
             self._seen_fingerprints.add(fp_key)
 
         target = self.pro_claims if speaker.lower() == "pro" else self.contra_claims
-        if len(target) < _MAX_TRACKED:
-            target.append(fingerprint)
-        else:
-            target[-1] = fingerprint  # Rolling window — keep most recent
+        target.append(fingerprint)  # deque(maxlen=_MAX_TRACKED) handles eviction
 
-        evidence = self._extract_evidence_markers(content)
-        self.used_evidence.update(evidence)
+        self.used_evidence.update(self._extract_evidence_markers(content))
 
     def get_memory_block(self, for_speaker: str) -> str:
         """Return a formatted memory block to inject into the prompt."""
@@ -59,11 +56,11 @@ class DebateMemory:
         opp = self.contra_claims if for_speaker.lower() == "pro" else self.pro_claims
 
         if own:
-            bullets = "\n".join(f"  - {c[:70]}" for c in own[-3:])
+            bullets = "\n".join(f"  - {c[:70]}" for c in list(own)[-3:])
             lines.append(f"YOUR PREVIOUS CLAIMS (do NOT repeat):\n{bullets}")
 
         if opp:
-            bullets = "\n".join(f"  - {c[:70]}" for c in opp[-3:])
+            bullets = "\n".join(f"  - {c[:70]}" for c in list(opp)[-3:])
             lines.append(f"OPPONENT'S CLAIMS (address these directly):\n{bullets}")
 
         if self.repeated_phrases:
@@ -71,8 +68,7 @@ class DebateMemory:
             lines.append(f"DETECTED REPETITION (avoid these phrases):\n{bullets}")
 
         if self.used_evidence:
-            evidence_list = list(self.used_evidence)[:4]
-            bullets = "\n".join(f"  - {e[:60]}" for e in evidence_list)
+            bullets = "\n".join(f"  - {e[:60]}" for e in list(self.used_evidence)[:4])
             lines.append(f"ALREADY CITED EVIDENCE (do not reuse without attribution):\n{bullets}")
 
         return "\n\n".join(lines)

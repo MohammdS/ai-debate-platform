@@ -10,6 +10,8 @@ const judgeNote = document.querySelector("#judge-note");
 const themeToggle = document.querySelector("#theme-toggle");
 const transcriptTopic = document.querySelector("#transcript-topic");
 const verdictTopic = document.querySelector("#verdict-topic");
+const tokenDetails = document.querySelector("#token-details");
+const tokenStatsDl = document.querySelector("#token-stats");
 
 let currentModelInfo = {};
 
@@ -33,6 +35,24 @@ function cleanText(value) {
     .replaceAll("\u00e2\u20ac\ufffd", '"')
     .replaceAll("\u00e2\u2020\u2019", "->")
     .replaceAll("\u00c2", "");
+}
+
+function renderTokenStats(stats) {
+  if (!stats || typeof stats !== "object") {
+    tokenDetails.hidden = true;
+    return;
+  }
+  const rows = [
+    ["Tokens in",       (stats.total_tokens_in  ?? 0).toLocaleString()],
+    ["Tokens out",      (stats.total_tokens_out ?? 0).toLocaleString()],
+    ["Est. cost (USD)", stats.estimated_cost_usd != null
+      ? "$" + Number(stats.estimated_cost_usd).toFixed(6)
+      : "–"],
+  ];
+  tokenStatsDl.innerHTML = rows
+    .map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`)
+    .join("");
+  tokenDetails.hidden = false;
 }
 
 function labelFor(name) {

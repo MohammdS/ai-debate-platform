@@ -244,21 +244,31 @@ class TestJudgeEmptyTranscriptGuard:
 
 
 # ── Structured verdict parser & judge integration tests ──────────────────
-_SCORE = {"logic": 8, "evidence": 7, "rebuttal_quality": 6, "relevance": 9,
-          "clarity": 8, "citation_quality": 5, "repetition_penalty": -1, "total": 42}
+# Schema: logic/evidence/rebuttal_quality → 0-20 each; rest → 0-10 each; total → sum
+_SCORE = {
+    "logic": 16, "evidence": 15, "rebuttal_quality": 17,
+    "relevance": 8, "clarity": 9, "citation_quality": 7, "consistency": 8,
+    "total": 80,
+}
+_SCORE_B = {
+    "logic": 11, "evidence": 9, "rebuttal_quality": 10,
+    "relevance": 7, "clarity": 7, "citation_quality": 5, "consistency": 6,
+    "total": 55,
+}
 _SAMPLE_VERDICT = {
-    "scores": {"pro": _SCORE, "contra": {**_SCORE, "total": 35, "repetition_penalty": 0}},
+    "scores": {"pro": _SCORE, "contra": _SCORE_B},
     "reasoning": {"pro": "Strong evidence.", "contra": "Lacked citations."},
     "winner": "Pro",
 }
-_SCORE_FIELDS = {"logic", "evidence", "rebuttal_quality", "relevance",
-                 "clarity", "citation_quality", "repetition_penalty", "total"}
+_EXPECTED_FIELDS = {"logic", "evidence", "rebuttal_quality", "relevance",
+                    "clarity", "citation_quality", "consistency", "total"}
 
 
 def test_parse_structured_verdict_valid_json():
     """parse_structured_verdict extracts dict from valid JSON string."""
     result = parse_structured_verdict(json.dumps(_SAMPLE_VERDICT))
-    assert result is not None and result["winner"] == "Pro" and result["scores"]["pro"]["logic"] == 8
+    assert result is not None and result["winner"] == "Pro"
+    assert result["scores"]["pro"]["logic"] == 16
 
 
 def test_parse_structured_verdict_from_code_block():
@@ -275,11 +285,72 @@ def test_parse_structured_verdict_returns_none_on_garbage():
 
 
 def test_verdict_has_all_score_fields():
-    """Structured verdict contains all 7 score fields per debater."""
+    """Structured verdict contains all 7 scoring fields + total per debater."""
     result = parse_structured_verdict(json.dumps(_SAMPLE_VERDICT))
     assert result is not None
     for side in ("pro", "contra"):
-        assert set(result["scores"][side].keys()) == _SCORE_FIELDS
+        assert set(result["scores"][side].keys()) == _EXPECTED_FIELDS
+
+
+def test_parse_structured_verdict_clamps_out_of_range_scores():
+    """Scores above the field maximum are clamped; total is recomputed."""
+    bad = {
+        "scores": {
+            "pro":    {"logic": 150, "evidence": 5, "rebuttal_quality": 5,
+                       "relevance": 5, "clarity": 5, "citation_quality": 5,
+                       "consistency": 5, "total": 999},
+            "contra": {"logic": -5, "evidence": 0, "rebuttal_quality": 0,
+                       "relevance": 0, "clarity": 0, "citation_quality": 0,
+                       "consistency": 0, "total": 0},
+        },
+        "reasoning": {"pro": "ok", "contra": "ok"},
+        "winner": "Pro",
+    }
+    result = parse_structured_verdict(json.dumps(bad))
+    assert result is not None
+    assert result["scores"]["pro"]["logic"] == 20          # clamped to max
+    assert result["scores"]["pro"]["total"] == 50          # 20+5+5+5+5+5+5 = 50
+    assert result["scores"]["contra"]["logic"] == 0        # clamped to min
+
+
+def test_parse_structured_verdict_recomputes_wrong_total():
+    """Total in JSON is ignored — always recomputed from field values."""
+    wrong_total = dict(_SCORE)
+    wrong_total["total"] = 999          # intentionally wrong
+    verdict = {"scores": {"pro": wrong_total, "contra": _SCORE_B},
+               "reasoning": {"pro": "", "contra": ""}, "winner": "Pro"}
+    result = parse_structured_verdict(json.dumps(verdict))
+    assert result is not None
+    assert result["scores"]["pro"]["total"] == 80          # 16+15+17+8+9+7+8
+
+
+def test_format_verdict_for_display_structure():
+    """format_verdict_for_display renders totals and all field lines."""
+    from src.services.judge_prompts import format_verdict_for_display
+    text = format_verdict_for_display(_SAMPLE_VERDICT)
+    assert "80/100" in text
+    assert "55/100" in text
+    assert "WINNER" in text.upper()
+    assert "PRO" in text.upper()
+    # All 7 scored fields appear
+    for field in ("Logic", "Evidence", "Rebuttal Quality", "Relevance",
+                  "Clarity", "Citation Quality", "Consistency"):
+        assert field in text
+
+
+def test_format_verdict_displays_per_field_max():
+    """Each field shows its maximum (20 or 10) next to the score."""
+    from src.services.judge_prompts import format_verdict_for_display
+    text = format_verdict_for_display(_SAMPLE_VERDICT)
+    assert "16/20" in text    # logic (max 20)
+    assert "8/10" in text     # relevance (max 10)
+
+
+def test_format_verdict_winner_uppercase():
+    """Winner section is rendered in uppercase for visual emphasis."""
+    from src.services.judge_prompts import format_verdict_for_display
+    text = format_verdict_for_display(_SAMPLE_VERDICT)
+    assert "WINNER: PRO" in text
 
 
 @pytest.mark.asyncio
