@@ -356,11 +356,12 @@ ai-debate-platform/
 ---
 
 ## Screenshots
+<img width="727" height="735" alt="Screenshot 2026-05-29 at 5 34 44" src="https://github.com/user-attachments/assets/97a5a71f-ecd2-40f9-b75a-a4d10cd916d8" />
+<img width="697" height="387" alt="Screenshot 2026-05-29 at 5 35 00" src="https://github.com/user-attachments/assets/ed28c6ce-0aad-4893-813e-df4124acfcee" />
+
 <img width="1271" height="807" alt="Screenshot 2026-05-29 at 5 36 15" src="https://github.com/user-attachments/assets/8ec88678-9a16-4c1e-9925-aaa85fa610a2" />
 <img width="1271" height="807" alt="Screenshot 2026-05-29 at 5 36 15" src="https://github.com/user-attachments/assets/c492cc75-b3f8-4611-84b3-b11f4644e5ff" />
 <img width="695" height="836" alt="Screenshot 2026-05-29 at 5 35 10" src="https://github.com/user-attachments/assets/94c71612-7002-4989-bc14-97cbabf16efc" />
-<img width="697" height="387" alt="Screenshot 2026-05-29 at 5 35 00" src="https://github.com/user-attachments/assets/ed28c6ce-0aad-4893-813e-df4124acfcee" />
-<img width="727" height="735" alt="Screenshot 2026-05-29 at 5 34 44" src="https://github.com/user-attachments/assets/97a5a71f-ecd2-40f9-b75a-a4d10cd916d8" />
 
 
 _Run `make demo` or use the GUI at `http://127.0.0.1:8000` to see the platform in action._
