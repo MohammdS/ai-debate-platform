@@ -20,18 +20,12 @@ WIN_RE = [re.compile(p, re.I) for p in [
     r"declare\s+(pro|contra)\s+the\s+winner",
     r"\b(pro|contra)\s+(?:side|debater)\s+wins?\b",
 ]]
-_MAX_WORDS = MAX_WORDS
-_MAX_TRANSCRIPT_ENTRIES = MAX_TRANSCRIPT_ENTRIES
-
 CLARIFY_PROMPT = (
     "Your verdict is missing the required WINNER declaration. "
     "Append one line in EXACTLY this format — no extra words:\n"
     "WINNER: Pro\nor\nWINNER: Contra"
 )
 
-# Score fields and their maximum values — loaded from config/skills.json so
-# weights can be tuned without touching source code.
-# Fallback keeps the original 3×20 + 4×10 = 100 scheme if config is absent.
 _SCORE_FIELDS_FALLBACK: tuple[tuple[str, int], ...] = (
     ("logic",            20),
     ("evidence",         20),
@@ -47,7 +41,6 @@ _SCORE_FIELDS: tuple[tuple[str, int], ...] = (
     if _raw_score_fields
     else _SCORE_FIELDS_FALLBACK
 )
-
 _JSON_BLOCK_RE = re.compile(r"```json\s*([\s\S]*?)\s*```", re.I)
 
 
@@ -60,9 +53,6 @@ def build_verdict_schema() -> dict:
         "reasoning": {"pro": "explanation", "contra": "explanation"},
         "winner": "Pro or Contra",
     }
-
-
-_FIELD_MAX: dict[str, int] = dict(_SCORE_FIELDS)
 
 
 def _validate_scores(verdict: dict) -> dict:
@@ -129,7 +119,6 @@ def format_verdict_for_display(verdict_dict: dict) -> str:
 
 def build_system_prompt() -> str:
     cfg = get_agent_prompt("judge")
-
     criteria = "\n".join(
         f"- {k.replace('_', ' ').title()}: {v}"
         for k, v in cfg.get("scoring_criteria", {}).items()
@@ -151,5 +140,6 @@ def build_system_prompt() -> str:
         f"MANDATORY PENALIZATION CRITERIA — deduct points for ALL of the following:\n{penalization}\n\n"
         f"ADDITIONAL SCORING RULES:\n{additional}\n\n"
         f"CRITICAL — REASONING SECTION RULES:\n{reasoning}\n"
-        "- When possible, respond with valid JSON matching the verdict schema."
+        "- MANDATORY: Your verdict MUST be valid JSON matching the verdict schema above. "
+        "Plain-text fallback is not accepted. If you cannot produce valid JSON, output ONLY the JSON block."
     )

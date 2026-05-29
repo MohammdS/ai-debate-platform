@@ -6,8 +6,8 @@ from src.ipc.message import DebateMessage, MessageType
 class JudgeRelayMixin:
     """Mixin providing _relay_round and _finalize for Judge."""
 
-    async def _relay_round(self, rnd: int) -> bool:
-        """Relay one A→B→A exchange. Returns False on timeout."""
+    async def _relay_round(self, rnd: int, is_final: bool = False) -> bool:
+        """Relay one A→B exchange; relay B's response back to A unless this is the final round."""
         try:
             msg_a = await self.inbox_a.receive()
         except TimeoutError:
@@ -32,10 +32,11 @@ class JudgeRelayMixin:
         if self.event_queue:
             await self.event_queue.put({"type": "message", "message": self.transcript[-1],
                                         "count": len(self.transcript)})
-        await self.outbox_a.send(DebateMessage(
-            msg_type=MessageType.RELAY, sender="judge",
-            receiver="debater_a", payload=msg_b.payload, round_num=rnd,
-        ))
+        if not is_final:
+            await self.outbox_a.send(DebateMessage(
+                msg_type=MessageType.RELAY, sender="judge",
+                receiver="debater_a", payload=msg_b.payload, round_num=rnd + 1,
+            ))
         return True
 
     async def _finalize(self, total_rounds: int) -> None:

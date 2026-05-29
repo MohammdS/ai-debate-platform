@@ -203,13 +203,17 @@ Controls all debate and service parameters:
 | `api` | `gemini_model` | `gemini-2.5-flash` | Model used for Gemini provider |
 | `api` | `openrouter_model` | `openai/gpt-oss-120b:free` | Model used for OpenRouter |
 | `debate` | `total_rounds` | `10` | Number of debate rounds (20 turns total) |
-| `debate` | `debater_max_words` | `120` | Hard word limit per debater response |
+| `debate` | `min_rounds` / `max_rounds` | `1` / `10` | GUI round bounds |
+| `debate` | `debater_max_words` | `130` | Hard word limit per debater response |
 | `debate` | `judge_max_words` | `200` | Hard word limit for judge verdict |
 | `debate` | `temperature` | `0.7` | LLM sampling temperature |
 | `defaults` | `provider_a` | `zai` | Default provider for Debater A |
 | `defaults` | `provider_b` | `groq` | Default provider for Debater B |
 | `defaults` | `judge_provider` | `groq` | Default provider for the Judge |
+| `defaults` | `topic` / `stance_a` / `stance_b` | AI threat defaults | Browser fallback debate inputs |
+| `providers` | `available` / `labels` | provider list | CLI options and GUI display names |
 | `server` | `host` / `port` | `127.0.0.1:8000` | GUI server address |
+| `server` | `max_concurrent_debates` | `3` | Concurrent GUI debate limit |
 | `watchdog` | `timeout_seconds` | `600` | Debate-level timeout before watchdog intervenes |
 | `watchdog` | `max_failures` | `3` | Max consecutive failures before debate abort |
 
@@ -256,7 +260,7 @@ For full design details see `docs/PRD_ipc.md`.
 `ApiGatekeeper` sits in front of every outbound LLM call. It enforces:
 
 - **Per-provider rate limits** loaded from `config/rate_limits.json`
-- **Token-bucket backpressure** — requests queue rather than fail immediately
+- **Provider-level spacing** using an async lock and monotonic timestamp per provider
 - **Automatic retry with exponential backoff** on transient errors
 - **Structured error propagation** so the orchestrator can decide whether to abort or retry
 
@@ -277,7 +281,7 @@ For full design details see `docs/PRD_watchdog.md`.
 
 ## Provider Abstraction
 
-All LLM providers implement `BaseAIClient` (`src/sdk/base_client.py`), which exposes a single `complete(prompt, system_prompt, max_tokens, temperature)` coroutine. `LLMService` (`src/sdk/llm_service.py`) is the sole entry point — callers never instantiate clients directly. `ClientFactory` (`src/sdk/factory.py`) handles construction.
+All LLM providers implement `BaseAIClient` (`src/sdk/base_client.py`), which exposes a single `generate_response(messages)` coroutine using chat-style message dictionaries. `LLMService` (`src/sdk/llm_service.py`) is the role-based entry point for provider/model selection and gatekeeper creation, while `ClientFactory` (`src/sdk/factory.py`) handles concrete client construction.
 
 | Provider | Class | Env Var | Free Tier |
 |----------|-------|---------|-----------|
@@ -306,7 +310,10 @@ uv run pytest tests/unit/ -v
 uv run pytest tests/unit/test_judge.py -v
 
 # Run linter
-uv run ruff check src/
+uv run ruff check src tests
+
+# Verify production Python files stay under the assignment line cap
+find src -name '*.py' -exec wc -l {} +
 ```
 
 See `docs/TESTING.md` for a full breakdown of test categories and how to write new tests.
@@ -332,7 +339,8 @@ ai-debate-platform/
 │   ├── PRD_gatekeeper.md
 │   ├── PRD_watchdog.md
 │   ├── REQUIREMENTS_TRACEABILITY.md
-│   ├── DEMO_TRANSCRIPT.md
+│   ├── debate_transcript.md
+│   ├── skill_log.md
 │   ├── TESTING.md
 │   └── LIMITATIONS.md
 ├── src/
@@ -342,7 +350,7 @@ ai-debate-platform/
 │   ├── skills/             # All skill classes + SkillSelector
 │   ├── ipc/                # asyncio.Queue channel definitions
 │   ├── cli/                # Interactive menu
-│   ├── gui/                # FastAPI server + SSE streaming
+│   ├── gui/                # http.server GUI + NDJSON streaming
 │   ├── tools/              # Web search tool
 │   └── main.py             # CLI entry point
 ├── tests/
@@ -352,18 +360,6 @@ ai-debate-platform/
 ├── pyproject.toml
 └── uv.lock
 ```
-
----
-
-## Screenshots
-<img width="1052" height="697" alt="Screenshot 2026-05-29 at 5 35 39" src="https://github.com/user-attachments/assets/2f90ab3f-de50-40d0-877d-3a7ce7de74e0" />
-<img width="727" height="735" alt="Screenshot 2026-05-29 at 5 34 44" src="https://github.com/user-attachments/assets/97a5a71f-ecd2-40f9-b75a-a4d10cd916d8" />
-<img width="697" height="387" alt="Screenshot 2026-05-29 at 5 35 00" src="https://github.com/user-attachments/assets/ed28c6ce-0aad-4893-813e-df4124acfcee" />
-<img width="1271" height="807" alt="Screenshot 2026-05-29 at 5 36 15" src="https://github.com/user-attachments/assets/c492cc75-b3f8-4611-84b3-b11f4644e5ff" />
-<img width="695" height="836" alt="Screenshot 2026-05-29 at 5 35 10" src="https://github.com/user-attachments/assets/94c71612-7002-4989-bc14-97cbabf16efc" />
-
-
-use the GUI at `http://127.0.0.1:8000` to see the platform in action._
 
 ---
 
@@ -378,7 +374,8 @@ use the GUI at `http://127.0.0.1:8000` to see the platform in action._
 | [docs/PRD_gatekeeper.md](docs/PRD_gatekeeper.md) | API Gatekeeper design |
 | [docs/PRD_watchdog.md](docs/PRD_watchdog.md) | Watchdog Agent design |
 | [docs/REQUIREMENTS_TRACEABILITY.md](docs/REQUIREMENTS_TRACEABILITY.md) | Full requirements-to-implementation mapping |
-| [docs/DEMO_TRANSCRIPT.md](docs/DEMO_TRANSCRIPT.md) | Sample debate transcript |
+| [docs/debate_transcript.md](docs/debate_transcript.md) | Latest full generated debate transcript |
+| [docs/skill_log.md](docs/skill_log.md) | Latest generated skill usage log |
 | [docs/TESTING.md](docs/TESTING.md) | Test architecture and commands |
 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | Known limitations |
 

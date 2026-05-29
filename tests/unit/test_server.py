@@ -91,3 +91,50 @@ def test_debate_semaphore_releases_after_use():
     acquired = srv._debate_semaphore.acquire(blocking=False)
     assert acquired, "Semaphore should be free after previous debate completed"
     srv._debate_semaphore.release()
+
+
+# ---------------------------------------------------------------------------
+# Path traversal prevention
+# ---------------------------------------------------------------------------
+
+def test_static_traversal_path_escapes_gui_dir():
+    """Sanity: a traversal route resolves outside GUI_DIR."""
+    from src.gui.server_paths import GUI_DIR
+    evil_route = "../../etc/passwd"
+    candidate = (GUI_DIR / evil_route).resolve()
+    assert not candidate.is_relative_to(GUI_DIR.resolve())
+
+
+def test_result_file_rejects_traversal_session_id():
+    """_result_file raises ValueError for a session_id containing path traversal."""
+    import pytest
+
+    from src.gui.server import _result_file
+    with pytest.raises(ValueError):
+        _result_file("../../etc/passwd")
+
+
+def test_result_file_rejects_non_hex_session_id():
+    """_result_file raises ValueError for a session_id that is not hex."""
+    import pytest
+
+    from src.gui.server import _result_file
+    with pytest.raises(ValueError):
+        _result_file("not-a-valid-id!")
+
+
+def test_result_file_rejects_null_byte_session_id():
+    """_result_file raises ValueError for a session_id containing a null byte."""
+    import pytest
+
+    from src.gui.server import _result_file
+    with pytest.raises(ValueError):
+        _result_file("a1b2c3d4\x00")
+
+
+def test_result_file_accepts_valid_session_id():
+    """_result_file accepts a valid 8-char hex session ID without raising."""
+    from src.gui.server import _result_file
+    path = _result_file("a1b2c3d4")
+    assert path.name == "debate.json"
+    assert "a1b2c3d4" in str(path)

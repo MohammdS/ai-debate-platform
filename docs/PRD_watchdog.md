@@ -6,34 +6,37 @@ Autonomous agent runs can hang indefinitely if an LLM API stalls, a queue blocks
 ## Requirement
 The lecture engineering requirements state: *"Watchdog with keep-alive — mandatory in every autonomous agents project. If a process falls, kill it and restart it."*
 
-## Solution (`src/shared/watchdog.py`) — Pending Implementation
+## Solution (`src/services/watchdog_agent.py`) — Implemented
 
 ### Interface
 ```python
-watchdog = Watchdog(timeout=600.0, max_retries=3, logger=logger)
-verdict = await watchdog.run(orchestrator.run_debate)
+watchdog = WatchdogAgent(max_failures=3, poll_interval=1.0)
+watchdog.register("debate", fresh_debate_factory, timeout=600.0)
+await watchdog.start()
 ```
 
 ### Behaviour
-- Wraps the entire `run_debate()` coroutine in `asyncio.wait_for(..., timeout)`.
-- On `TimeoutError`: logs error, resets orchestrator state, retries up to `max_retries`.
-- On unrecoverable failure (max retries exceeded): re-raises for the caller to handle.
-- On success: returns the verdict string.
+- Wraps registered agent/debate coroutines in `asyncio.wait_for(..., timeout)`.
+- Tracks heartbeat staleness and cancels stale tasks.
+- Restarts failed/stale runs with backoff until `max_failures`.
+- Stops the monitored system when the failure budget is exhausted.
 
 ### Retry Reset
-Each retry must reset `judge.transcript` and `orchestrator.history` to `[]`, and re-wire IPC channels (channels are single-use once a coroutine exits).
+CLI and non-stream GUI registrations use fresh factories, so each retry creates new debaters, judge, orchestrator, IPC channels, transcript, memory, and skill logs.
 
 ## Configuration (`config/setup.json`)
 ```json
 "watchdog": {
   "timeout_seconds": 600.0,
-  "max_retries": 3
+  "max_failures": 3,
+  "poll_interval_seconds": 5.0
 }
 ```
 
 ## Files
-- `src/shared/watchdog.py` — **not yet implemented**
-- `tests/unit/test_watchdog.py` — **not yet implemented**
+- `src/services/watchdog_agent.py`
+- `src/services/watchdog_helpers.py`
+- `tests/unit/test_watchdog_agent.py`
 
 ## Status
-**Pending.** Tracked in `docs/TODO.md`.
+**Implemented.** Tracked by `tests/unit/test_watchdog_agent.py`.

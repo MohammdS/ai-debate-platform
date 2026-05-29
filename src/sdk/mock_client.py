@@ -4,6 +4,8 @@ from src.sdk.base_client import BaseAIClient
 class MockAIClient(BaseAIClient):
     """Mock AI client for testing and development."""
 
+    supports_web_search: bool = False
+
     def _check_api_key(self) -> None:
         """No-op: mock client does not require a real API key."""
 

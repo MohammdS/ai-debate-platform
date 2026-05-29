@@ -5,6 +5,11 @@ def test_config_load():
     config = ConfigManager()
     assert config.total_rounds == 10
     assert config.openai_model == "gpt-4"
+    assert config.max_rounds == 10
+    assert config.default_topic == "Is AI a threat?"
+    assert "openrouter" in config.available_providers
+    assert config.provider_labels["openrouter"] == "OpenRouter"
+    assert config.server_max_concurrent_debates == 3
 
 def test_config_get_api_key(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test_key")

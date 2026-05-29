@@ -1,7 +1,6 @@
 """CLI debate runner — wires up services and executes a single debate."""
 from __future__ import annotations
 
-import asyncio
 import sys
 
 from src.sdk.llm_service import LLMService
@@ -31,49 +30,55 @@ async def run_debate(
     topic: str,
     stance_a: str,
     stance_b: str,
-    provider_a: str = "zai",
-    provider_b: str = "groq",
-    judge_provider: str = "groq",
+    provider_a: str | None = None,
+    provider_b: str | None = None,
+    judge_provider: str | None = None,
 ) -> None:
-    service = LLMService(role_overrides={
-        "debater_a": provider_a,
-        "debater_b": provider_b,
-        "judge":     judge_provider,
-    })
-
-    gk_a = service.get_gatekeeper("debater_a")
-    gk_b = service.get_gatekeeper("debater_b")
-    gk_j = service.get_gatekeeper("judge")
-
-    debater_a = Debater(
-        "Pro", stance_a, topic,
-        service.get_client("debater_a"), gk_a,
-        skill=DebaterSkill(_cfg.skill_type_a),
-        opponent_stance=stance_b,
-    )
-    debater_b = Debater(
-        "Contra", stance_b, topic,
-        service.get_client("debater_b"), gk_b,
-        skill=DebaterSkill(_cfg.skill_type_b),
-        opponent_stance=stance_a,
-    )
-    judge = Judge(service.get_client("judge"), gk_j)
-
+    provider_a = provider_a or _cfg.default_provider_a
+    provider_b = provider_b or _cfg.default_provider_b
+    judge_provider = judge_provider or _cfg.default_judge_provider
     print("\n[INFO] Starting debate...\n")
+
+    # live_run stores objects from the most recent watchdog attempt so restarts
+    # always produce a complete, fresh set of agents rather than a stale one.
+    live_run: list = []
+    verdict_box: list[str] = []
+
     watchdog = WatchdogAgent(
         max_failures=_cfg.watchdog_max_failures,
         poll_interval=_cfg.watchdog_poll_interval,
     )
-    orchestrator = DebateOrchestrator(
-        debater_a, debater_b, judge,
-        beat_fn=lambda: watchdog.beat("debate"),
-    )
-    verdict_box: list[str] = []
 
-    async def _run_and_capture() -> None:
-        verdict_box.append(await orchestrator.run_debate())
+    def _fresh_factory():
+        """Build completely fresh services for each watchdog attempt."""
+        _service = LLMService(role_overrides={
+            "debater_a": provider_a,
+            "debater_b": provider_b,
+            "judge":     judge_provider,
+        })
+        _da = Debater(
+            "Pro", stance_a, topic,
+            _service.get_client("debater_a"), _service.get_gatekeeper("debater_a"),
+            skill=DebaterSkill(_cfg.skill_type_a),
+            opponent_stance=stance_b,
+        )
+        _db = Debater(
+            "Contra", stance_b, topic,
+            _service.get_client("debater_b"), _service.get_gatekeeper("debater_b"),
+            skill=DebaterSkill(_cfg.skill_type_b),
+            opponent_stance=stance_a,
+        )
+        _j = Judge(_service.get_client("judge"), _service.get_gatekeeper("judge"))
+        _orch = DebateOrchestrator(_da, _db, _j, beat_fn=lambda: watchdog.beat("debate"))
 
-    watchdog.register("debate", _run_and_capture, timeout=_cfg.watchdog_timeout)
+        async def _run() -> None:
+            verdict_box.append(await _orch.run_debate())
+            live_run.clear()
+            live_run.extend([_da, _db, _j, _orch])
+
+        return _run()
+
+    watchdog.register("debate", _fresh_factory, timeout=_cfg.watchdog_timeout)
     await watchdog.start()
 
     if not verdict_box:
@@ -81,8 +86,9 @@ async def run_debate(
         print("\n[ERROR] The debate did not complete. Check the logs for details.")
         sys.exit(1)
 
-    verdict = verdict_box[0]
-    token_stats = _merge_stats(gk_a, gk_b, gk_j)
+    verdict = verdict_box[-1]
+    debater_a, debater_b, judge, orchestrator = live_run
+    token_stats = _merge_stats(debater_a.gatekeeper, debater_b.gatekeeper, judge.gatekeeper)
 
     exporter = DebateExporter()
     exporter.export_to_markdown(topic, orchestrator.history, verdict, token_stats=token_stats)

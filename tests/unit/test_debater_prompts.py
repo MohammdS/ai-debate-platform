@@ -20,16 +20,14 @@ from __future__ import annotations
 
 import pytest
 
+from src.services.context_compressor import ContextCompressor
 from src.services.debater_prompts import (
-    FACT_SAFETY_POLICY,
     RESPONSE_STRUCTURE,
     STYLE_POLICY,
     build_system_prompt,
     build_turn_header,
 )
-from src.services.context_compressor import ContextCompressor
 from src.services.judge_prompts import build_system_prompt as build_judge_prompt
-
 
 # ── 1. System prompt contains the assigned stance ────────────────────────────
 
@@ -235,6 +233,7 @@ def test_regression_judge_penalises_hallucinated_sources_in_transcript():
 def test_fact_safety_filter_is_domain_neutral():
     """The filter must not contain sport-specific patterns (FIFA, Ballon d'Or)."""
     import inspect
+
     from src.skills import fact_safety_filter
     source = inspect.getsource(fact_safety_filter)
     assert "FIFA"          not in source, "sports-specific FIFA pattern found"

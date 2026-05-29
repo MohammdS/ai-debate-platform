@@ -27,13 +27,14 @@ result = await gatekeeper.execute(client.generate_response, messages)
 - `TimeoutError` is retried like any other exception.
 
 ### Retry Logic
-- Up to 3 attempts with `2^attempt` second backoff (0s, 2s, 4s).
+- Up to the configured retry count; transient failures sleep with exponential backoff between attempts.
+- Rate-limit failures use the configured `retry_after_seconds` before the next attempt.
 - On final attempt, exception propagates to caller.
 
-## Configuration (`config/setup.json`)
+## Configuration (`config/rate_limits.json`)
 ```json
-"api": {
-  "rate_limit_rpm": 30,
+"default": {
+  "rpm_limit": 30,
   "timeout_seconds": 60.0
 }
 ```

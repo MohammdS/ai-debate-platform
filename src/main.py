@@ -5,10 +5,13 @@ import asyncio
 
 from src.cli.menu import interactive_menu
 from src.cli.runner import run_debate
+from src.shared.config import ConfigManager
 from src.shared.version import VERSION
 
 
 def main() -> None:
+    cfg = ConfigManager()
+    provider_help = " | ".join(cfg.available_providers)
     parser = argparse.ArgumentParser(
         description="AI Debate Platform",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -18,12 +21,12 @@ def main() -> None:
     parser.add_argument("--topic",           default=None)
     parser.add_argument("--stance-a",        default=None, dest="stance_a")
     parser.add_argument("--stance-b",        default=None, dest="stance_b")
-    parser.add_argument("--provider-a",      default="zai",  dest="provider_a",
-                        help="groq | gemini | openai | zai | mock")
-    parser.add_argument("--provider-b",      default="groq", dest="provider_b",
-                        help="groq | gemini | openai | zai | mock")
-    parser.add_argument("--judge-provider",  default="groq", dest="judge_provider",
-                        help="groq | gemini | openai | zai | mock")
+    parser.add_argument("--provider-a",      default=cfg.default_provider_a, dest="provider_a",
+                        help=provider_help)
+    parser.add_argument("--provider-b",      default=cfg.default_provider_b, dest="provider_b",
+                        help=provider_help)
+    parser.add_argument("--judge-provider",  default=cfg.default_judge_provider, dest="judge_provider",
+                        help=provider_help)
     args = parser.parse_args()
 
     if not args.topic or not args.stance_a or not args.stance_b:
