@@ -369,7 +369,8 @@ ai-debate-platform/
 <img width="697" height="387" alt="Screenshot 2026-05-29 at 5 35 00" src="https://github.com/user-attachments/assets/db5aebee-7b32-4346-9e26-762a99d444a3" />
 <img width="1045" height="808" alt="Screenshot 2026-05-29 at 5 35 50" src="https://github.com/user-attachments/assets/36be38fc-850a-40b7-984c-d4de277f17ae" />
 <img width="1052" height="697" alt="Screenshot 2026-05-29 at 5 35 39" src="https://github.com/user-attachments/assets/beaaaa4b-6604-468a-8c00-d35bbcb26eef" />
-<img width="1290" height="809" alt="Screenshot 2026-05-29 at 5 36 39" src="https://github.com/user-attachments/assets/9652020c-fffb-4742-bcdd-c10601314bc5" />
+<img width="1290" height="809" alt="Screenshot 2026-05-29 at 5 36 39" src="https://github.com/user-attachments/assets/7d6442f4-196f-4085-a140-fb0a74b3024b" />
+
 
 
 
