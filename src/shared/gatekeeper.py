@@ -14,10 +14,9 @@ _load_pricing = load_pricing  # kept for backward-compat imports
 
 
 class ApiGatekeeper:
-    """Centralized API call manager: rate limiting, timeout, retry, fallback,
-    token tracking, cost estimation, and structured JSON logging.
-    Rate limiting is enforced globally per provider."""
+    """Centralized API call manager for throttling, retry, fallback, stats, and logs."""
 
+    # asyncio locks are event-loop bound; tests and GUI calls can create fresh loops.
     _provider_locks: dict[str, asyncio.Lock] = {}
     _provider_loops: dict[str, asyncio.AbstractEventLoop | None] = {}
     _provider_last_call: dict[str, float] = {}

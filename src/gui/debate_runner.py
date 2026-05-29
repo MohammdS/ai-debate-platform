@@ -2,12 +2,8 @@ import asyncio
 import logging
 import uuid
 
-from src.models.debate import DebateSession, Message
-from src.sdk.llm_service import LLMService
-from src.services.base_agent import DebaterSkill
-from src.services.debater import Debater
+from src.gui.service_builder import build_debate_services
 from src.services.exporter import DebateExporter
-from src.services.judge import Judge
 from src.services.orchestrator import DebateOrchestrator
 from src.services.watchdog_agent import WatchdogAgent
 from src.shared.config import ConfigManager
@@ -25,100 +21,42 @@ def _merge_stats(*gks) -> dict:
     }
 
 
-def _export(exporter: DebateExporter, topic: str, history: list, verdict: str, stats: dict) -> None:
-    exporter.export_to_markdown(topic, history, verdict, stats)
-    exporter.export_to_json(topic, history, verdict, stats)
-
-
-def _model_label(provider: str, model: str) -> str:
-    provider_names = {
-        "zai": "Z.ai",
-        "groq": "Groq",
-        "gemini": "Gemini",
-        "openai": "OpenAI",
-        "mock": "Mock",
-    }
-    return f"{provider_names.get(provider, provider)} {model}"
-
-
-def _model_info(service: LLMService) -> dict:
-    return {
-        "debater_a": {
-            "label": "Debater A",
-            "provider": service.provider_for("debater_a"),
-            "model": service.model_for("debater_a"),
-        },
-        "debater_b": {
-            "label": "Debater B",
-            "provider": service.provider_for("debater_b"),
-            "model": service.model_for("debater_b"),
-        },
-        "judge": {
-            "label": "Judge",
-            "provider": service.provider_for("judge"),
-            "model": service.model_for("judge"),
-        },
-    }
-
-
-def _with_display_names(model_info: dict) -> dict:
-    for item in model_info.values():
-        item["display"] = _model_label(item["provider"], item["model"])
-    return model_info
-
-
-def build_debate_services(payload: dict):
-    """Create debate services from a browser payload using LLMService routing."""
-    topic    = payload.get("topic")    or "Is AI a threat?"
-    stance_a = payload.get("stance_a") or "AI is a significant threat"
-    stance_b = payload.get("stance_b") or "AI is not a threat"
-    default_provider = payload.get("provider")
-    provider_a = payload.get("provider_a") or default_provider or "zai"
-    provider_b = payload.get("provider_b") or default_provider or "groq"
-    judge_provider = payload.get("judge_provider") or (
-        default_provider if default_provider == "mock" else "groq"
-    )
-
-    service = LLMService(role_overrides={
-        "debater_a": provider_a,
-        "debater_b": provider_b,
-        "judge": judge_provider,
-    })
-    model_info = _with_display_names(_model_info(service))
-
-    debater_a = Debater("Pro", stance_a, topic,
-                        service.get_client("debater_a"),
-                        service.get_gatekeeper("debater_a"),
-                        skill=DebaterSkill.EVIDENCE_BASED,
-                        opponent_stance=stance_b)
-    debater_b = Debater("Contra", stance_b, topic,
-                        service.get_client("debater_b"),
-                        service.get_gatekeeper("debater_b"),
-                        skill=DebaterSkill.SOCRATIC,
-                        opponent_stance=stance_a)
-    judge     = Judge(service.get_client("judge"),
-                      service.get_gatekeeper("judge"))
-    rounds    = max(1, min(10, int(payload.get("rounds", 10))))
-    return topic, debater_a, debater_b, judge, rounds, model_info
-
-
 async def run_debate_from_payload(payload: dict) -> dict:
     """Run a full debate via the IPC orchestrator (watchdog-monitored) and return the result."""
     session_id = uuid.uuid4().hex[:8]
-    topic, debater_a, debater_b, judge, rounds, model_info = build_debate_services(payload)
-    orchestrator = DebateOrchestrator(debater_a, debater_b, judge, rounds)
+    topic = payload.get("topic") or _cfg.default_topic
 
-    watchdog = WatchdogAgent()
+    # live_run stores the objects from the most recent watchdog attempt so that
+    # stats and history are always from the last (successful) run.
+    live_run: list = []
     verdict_box: list[str] = []
 
-    async def _run_and_capture():
-        verdict_box.append(await orchestrator.run_debate())
+    def _fresh_factory():
+        """Build completely fresh services for each watchdog attempt."""
+        _topic, _da, _db, _j, _rds, _mi = build_debate_services(payload)
+        _orch = DebateOrchestrator(_da, _db, _j, _rds)
 
-    watchdog.register("debate", _run_and_capture, timeout=_cfg.watchdog_timeout)
+        async def _run():
+            v = await _orch.run_debate()
+            verdict_box.append(v)
+            live_run.clear()
+            live_run.extend([_da, _db, _j, _orch, _mi])
+
+        return _run()
+
+    watchdog = WatchdogAgent()
+    watchdog.register("debate", _fresh_factory, timeout=_cfg.watchdog_timeout)
     await watchdog.start()
 
-    verdict = verdict_box[0] if verdict_box else "Debate did not complete."
-    stats = _merge_stats(debater_a.gatekeeper, debater_b.gatekeeper, judge.gatekeeper)
+    verdict = verdict_box[-1] if verdict_box else "Debate did not complete."
+    if live_run:
+        debater_a, debater_b, judge, orchestrator, model_info = live_run
+        stats = _merge_stats(debater_a.gatekeeper, debater_b.gatekeeper, judge.gatekeeper)
+    else:
+        orchestrator = type("_Empty", (), {"history": []})()
+        model_info = {}
+        stats = {"total_tokens_in": 0, "total_tokens_out": 0, "estimated_cost_usd": 0.0}
+        debater_a = debater_b = None
 
     def _export(results_dir: str) -> None:
         exp = DebateExporter(results_dir=results_dir)
@@ -126,11 +64,12 @@ async def run_debate_from_payload(payload: dict) -> dict:
                                model_info=model_info, token_stats=stats)
         exp.export_to_json(topic, orchestrator.history, verdict,
                            model_info=model_info, token_stats=stats)
-        exp.export_skill_log(
-            topic,
-            debater_a.skill_log, f"Pro ({debater_a.stance})",
-            debater_b.skill_log, f"Contra ({debater_b.stance})",
-        )
+        if debater_a and debater_b:
+            exp.export_skill_log(
+                topic,
+                debater_a.skill_log, f"Pro ({debater_a.stance})",
+                debater_b.skill_log, f"Contra ({debater_b.stance})",
+            )
 
     _export(f"results/{session_id}")   # session-specific (for concurrent access)
     _export("results")                 # legacy path (most recent debate)
@@ -161,6 +100,7 @@ async def stream_debate_from_payload(payload: dict):
         try:
             event = await asyncio.wait_for(event_queue.get(), timeout=stream_timeout)
         except TimeoutError:
+            # Stop waiting for live events; the debate task below still resolves the final result.
             break
         if event.get("type") == "_done":
             break

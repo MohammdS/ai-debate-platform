@@ -16,7 +16,7 @@ Mock and free-tier models (Groq Llama 3.1 8B, ZAI GLM-4.7-Flash) frequently inve
 
 ### Word Limit Compliance
 
-Debaters are instructed to stay under 120 words per turn (`debate.debater_max_words` in `config/setup.json`). The `enforce_word_limit` function in `src/services/response_cleanup.py` hard-truncates responses that exceed this limit. Truncation can cut arguments mid-sentence, producing awkward endings. Increasing the word limit improves argument quality at the cost of higher token usage and API costs.
+Debaters are instructed to stay under the configured `debate.debater_max_words` limit in `config/setup.json` (currently 130 words). The `enforce_word_limit` function in `src/services/response_cleanup.py` hard-truncates responses that exceed this limit. Truncation can cut arguments mid-sentence, producing awkward endings. Increasing the word limit improves argument quality at the cost of higher token usage and API costs.
 
 ---
 
@@ -30,9 +30,9 @@ Free-tier Groq and ZAI accounts have strict RPM (requests-per-minute) limits. A 
 
 Provider model names change frequently. If a configured model is deprecated or renamed, all calls to that provider will fail with a `ModelNotFoundError`. To fix: update `config/models.json` and the corresponding entry in `config/setup.json` with the current model ID from your provider's documentation.
 
-### No Streaming Support
+### No Token Streaming Support
 
-The platform uses single-shot completions (`complete()` method). Streaming mode — where partial tokens are displayed as they arrive — is not implemented. All text appears at once after the full response is generated. Adding streaming would require changes to `BaseAIClient`, all provider clients, the IPC channel types, and the GUI SSE handler.
+Provider calls use single-shot completions (`generate_response()`), so partial model tokens are not streamed as they are generated. The GUI does stream debate events over NDJSON after each completed argument. True token-level streaming would require changes to `BaseAIClient`, all provider clients, the IPC channel types, and the GUI event protocol.
 
 ---
 
@@ -60,15 +60,15 @@ Even with structured scoring criteria and a detailed rubric, judge scores reflec
 
 ### Transcript Length Truncation
 
-Very long debates or debates with verbose arguments may exceed the judge model's context window. `ContextCompressor` (`src/services/context_compressor.py`) truncates the transcript to `debate.judge_max_transcript_entries` entries (default: 20) before passing it to the judge. This means the judge may not evaluate early-round arguments in a long debate, potentially favouring the debater who made their best points later.
+Very long debates or debates with verbose arguments may exceed the judge model's context window. `JudgeRelayMixin` truncates the transcript to `debate.judge_max_transcript_entries` entries before final evaluation, while `ContextCompressor` compresses each debater's prompt history during the debate. This means the judge may not evaluate early-round arguments in a long debate, potentially favouring the debater who made their best points later.
 
 ---
 
 ## 5. GUI
 
-### Single Session Only
+### Limited Concurrent Sessions
 
-The GUI server (`src/gui/server.py` — FastAPI + Server-Sent Events) supports one active debate session at a time. A second browser tab or client connecting while a debate is running will see the same SSE stream. Running two simultaneous debates is not supported and would cause shared-state corruption.
+The GUI server (`src/gui/server.py` — `http.server` plus NDJSON streaming) allows a small number of concurrent debates, controlled by `server.max_concurrent_debates` in `config/setup.json`. This is process-local throttling, not a distributed queue, so multiple server processes would not coordinate capacity.
 
 ### No Persistence Between Restarts
 

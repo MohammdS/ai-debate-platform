@@ -45,7 +45,7 @@ Attack the argument, not the label.
 escalate with new evidence or a sharper attack each round.
 - Vary your sentence structure. Do not parrot back the opposing wording.
 - NO diplomatic hedging: remove phrases like "one might argue", "it could be said", \
-"perhaps", "to some extent". State your position as fact."""
+"perhaps", "to some extent". State the strongest supportable version of your position."""
 
 RESPONSE_STRUCTURE = """\
 HOW TO STRUCTURE YOUR RESPONSE:
@@ -93,8 +93,8 @@ def build_system_prompt(
         f"WORD LIMIT: {word_min}–{word_max} words per response. "
         f"Responses below {word_min} words are penalised for insufficient depth; "
         f"responses above {word_max} words are truncated.\n\n"
-        f"{RESPONSE_STRUCTURE}\n\n"
         f"{FACT_SAFETY_POLICY}\n\n"
+        f"{RESPONSE_STRUCTURE}\n\n"
         f"{STYLE_POLICY}"
     )
 

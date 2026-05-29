@@ -244,3 +244,44 @@ async def test_debater_run_exits_on_inbox_timeout():
     debater.outbox = IpcChannel("out", timeout=5.0)
     # Should return without raising — timeout is handled gracefully
     await debater.run()
+
+
+# ── Web-search enablement policy ──────────────────────────────────────────
+
+def test_supports_web_search_default_true():
+    """BaseAIClient.supports_web_search defaults to True."""
+    from src.sdk.base_client import BaseAIClient
+    assert BaseAIClient.supports_web_search is True
+
+
+def test_mock_client_supports_web_search_false():
+    """MockAIClient.supports_web_search is False."""
+    assert MockAIClient.supports_web_search is False
+
+
+@pytest.mark.asyncio
+async def test_web_search_skipped_when_flag_false():
+    """Web search is not attempted when client.supports_web_search is False."""
+    from unittest.mock import patch as _patch
+    client = MockAIClient("test", "key")
+    assert not client.supports_web_search
+    gatekeeper = ApiGatekeeper(rpm_limit=1000)
+    debater = Debater("A", "Pro", "Topic", client, gatekeeper)
+
+    with _patch.object(debater.search_tool, "search", new_callable=AsyncMock) as mock_search:
+        await debater.get_argument([{"role": "user", "content": "Hello"}], round_num=1)
+        mock_search.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_web_search_attempted_when_flag_true():
+    """Web search is attempted when client.supports_web_search is True."""
+    from unittest.mock import patch as _patch
+    client = MockAIClient("test", "key")
+    client.supports_web_search = True  # override for this test
+    gatekeeper = ApiGatekeeper(rpm_limit=1000)
+    debater = Debater("A", "Pro", "Topic", client, gatekeeper)
+
+    with _patch.object(debater.search_tool, "search", new_callable=AsyncMock, return_value=[]) as mock_search:
+        await debater.get_argument([{"role": "user", "content": "Hello"}], round_num=1)
+        mock_search.assert_called_once()

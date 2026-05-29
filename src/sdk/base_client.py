@@ -15,6 +15,8 @@ def _default_http_timeout() -> float:
 class BaseAIClient(ABC):
     """Abstract base class for all AI provider clients."""
 
+    supports_web_search: bool = True
+
     def __init__(self, model_name: str, api_key: str,
                  max_tokens: int = 180, temperature: float = 0.7,
                  http_timeout: float | None = None):

@@ -24,7 +24,7 @@ async def test_judge_evaluate_direct():
 
 @pytest.mark.asyncio
 async def test_judge_run_mediates_one_round():
-    """run() relays A→B and B→A for one round then emits VERDICT + SHUTDOWN."""
+    """run() relays A→B for one round (no relay back to A in final round), then emits VERDICT + SHUTDOWN."""
     client = MockAIClient("test", "key")
     gatekeeper = ApiGatekeeper(rpm_limit=1000)
     judge = Judge(client, gatekeeper)
@@ -58,17 +58,14 @@ async def test_judge_run_mediates_one_round():
     assert relay_to_b.msg_type == MessageType.RELAY
     assert relay_to_b.payload == "AI is dangerous."
 
-    # And B's msg to outbox_a
-    relay_to_a = await outbox_a.receive()
-    assert relay_to_a.msg_type == MessageType.RELAY
-    assert relay_to_a.payload == "AI is beneficial."
+    # Final round: judge does NOT relay B's response back to A (no extra LLM call)
 
     # Verdict should be on verdict_channel
     verdict = await verdict_ch.receive()
     assert verdict.msg_type == MessageType.VERDICT
     assert "winner" in verdict.payload.lower()
 
-    # SHUTDOWN sent to both debaters
+    # SHUTDOWN sent to both debaters (outbox_a first, then outbox_b)
     sd_a = await outbox_a.receive()
     sd_b = await outbox_b.receive()
     assert sd_a.msg_type == MessageType.SHUTDOWN

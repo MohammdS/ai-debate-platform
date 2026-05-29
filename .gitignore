@@ -33,13 +33,9 @@ knowledge/
 .chroma_db/
 debate.log
 
-# Lock file (checked-in separately — keep out of noise)
-uv.lock
-
 # OS
 .DS_Store
 Thumbs.db
 
 # Docs generated
 docs/AUDIT_REPORT.md
-

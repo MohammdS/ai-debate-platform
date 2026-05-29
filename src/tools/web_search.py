@@ -62,6 +62,7 @@ class WebSearchTool:
 
         merged: list[SearchResult] = []
         seen_in_run: set[str] = set()
+        # `seen` blocks cross-turn reuse; `seen_in_run` dedupes overlapping query fan-out.
         for batch in per_query:
             if isinstance(batch, Exception):
                 self._logger.warning("[web_search] query failed: %s", batch)

@@ -32,7 +32,7 @@ A Python-based platform for structured, competitive AI debates. Two AI debaters 
 - **Package manager:** `uv`
 - **Linter:** `ruff`
 - **Testing:** `pytest` + `pytest-asyncio`, >85% coverage
-- **AI providers:** OpenAI, Gemini, Groq, Mock
+- **AI providers:** OpenAI, Gemini, Groq, ZAI, OpenRouter, Mock
 - **Config:** `config/setup.json` — no hardcoded parameters
 - **Secrets:** API keys via `.env` only; `.env` in `.gitignore`
 
