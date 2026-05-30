@@ -34,19 +34,32 @@ class ContextCompressor:
         history: list[dict],
         system_prompt: str,
         skill_guidance: str = "",
+        turn_header: str = "",
     ) -> list[dict]:
-        """Return ``[system_msg, user_msg]`` with compressed debate context."""
+        """Return ``[system_msg, user_msg]`` with compressed debate context.
+
+        ``turn_header`` is injected as the very first line of the user message so
+        the model is immediately reminded of the topic and assigned stances.
+        """
         last_opp = self._last_opponent_message(history)
         summary = self._build_summary(history)
         angles = self._used_angles(history)
 
         parts: list[str] = []
+        if turn_header:
+            parts.append(turn_header)
         if summary:
             parts.append(f"DEBATE SO FAR:\n{summary}")
         if angles:
             bullet = "\n".join(f"- {a}" for a in angles)
             parts.append(f"ALREADY ARGUED — do NOT repeat:\n{bullet}")
-        parts.append(f"OPPONENT'S LAST MESSAGE:\n{last_opp or '(none yet — make your opening argument)'}")
+        if last_opp:
+            parts.append(f"OPPONENT'S LAST MESSAGE:\n{last_opp}")
+        else:
+            parts.append(
+                "OPENING TURN — no opponent message yet. "
+                "Begin directly with your strongest opening argument."
+            )
         if skill_guidance:
             parts.append(skill_guidance.strip())
 

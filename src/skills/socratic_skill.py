@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import re
+
 from src.skills.base_skill import BaseSkill
 from src.skills.models import SkillContext, SkillResult
 
@@ -9,14 +13,36 @@ _DEFAULT_QUESTIONS = [
     "What are the consequences if you are wrong?",
 ]
 
+_CERTAINTY_SIGNAL = re.compile(
+    r"\b(?:definitely|certainly|undoubtedly|inevitably|always|never|all|none|"
+    r"every|no one|everyone|impossible|guaranteed)\b",
+    re.I,
+)
+_CLAIM_SIGNAL = re.compile(
+    r"\b(?:therefore|thus|hence|it follows|this proves|this shows|must be|"
+    r"clearly shows|demonstrates that)\b",
+    re.I,
+)
+
 
 class SocraticSkill(BaseSkill):
     name = "socratic"
     description = "Generates Socratic questioning approach targeting opponent's specific claim"
 
-    def can_handle(self, context: SkillContext) -> bool:
+    def score(self, context: SkillContext) -> float:
         cfg = self._get_config()
-        return context.skill_type == cfg.get("skill_type_trigger", _DEFAULT_TRIGGER)
+        trigger = cfg.get("skill_type_trigger", _DEFAULT_TRIGGER)
+        msg = context.opponent_last_message
+        s = 0.75 if context.skill_type == trigger else 0.15
+        if _CERTAINTY_SIGNAL.search(msg):
+            s += 0.20
+        if _CLAIM_SIGNAL.search(msg):
+            s += 0.15
+        if msg.count("?") >= 2:
+            s -= 0.15  # opponent already questioning; switch approach
+        if context.round_num <= 1:
+            s -= 0.30  # no opponent position established yet
+        return min(1.0, max(0.0, s))
 
     def run(self, context: SkillContext) -> SkillResult:
         cfg = self._get_config()

@@ -1,35 +1,28 @@
 import asyncio
 import json
-import re
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote, urlparse
 
 from src.gui.debate_runner import run_debate_from_payload, stream_debate_from_payload
+from src.gui.server_paths import result_file, static_file
+from src.gui.server_response import CONTENT_TYPES, safe_error
 from src.shared.config import ConfigManager
 
-# Allows only one debate to run at a time; prevents resource exhaustion when
-# multiple browser tabs POST simultaneously.
-_debate_semaphore = threading.Semaphore(1)
-
-ROOT = Path(__file__).resolve().parents[2]
-GUI_DIR = ROOT / "gui"
-RESULT_FILE = ROOT / "results" / "debate.json"
-CONTENT_TYPES = {
-    ".html": "text/html; charset=utf-8",
-    ".css": "text/css; charset=utf-8",
-    ".js": "application/javascript; charset=utf-8",
-    ".json": "application/json; charset=utf-8",
-}
+_cfg = ConfigManager()
+_MAX_CONCURRENT = _cfg.server_max_concurrent_debates
+# Process-local guard: enough for one demo server, not a distributed queue.
+_debate_semaphore = threading.Semaphore(_MAX_CONCURRENT)
+_result_file = result_file
 
 
 class DebateGuiHandler(SimpleHTTPRequestHandler):
-    """Serves the GUI and JSON API endpoints."""
-
     def do_GET(self):
-        if self.path == "/api/results":
-            self._send_result_file()
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/results":
+            qs = parse_qs(parsed.query)
+            session_id = qs.get("id", [None])[0]
+            self._send_result_file(session_id)
             return
         self._send_static()
 
@@ -44,12 +37,15 @@ class DebateGuiHandler(SimpleHTTPRequestHandler):
 
     def _run_debate(self):
         if not _debate_semaphore.acquire(blocking=False):
-            self._send_json({"error": "A debate is already running. Please wait."}, status=503)
+            self._send_json(
+                {"error": f"Server busy — at most {_MAX_CONCURRENT} debates may run concurrently."},
+                status=503,
+            )
             return
         try:
             payload = self._read_json()
             session = asyncio.run(run_debate_from_payload(payload))
-            self._send_json(session.model_dump())
+            self._send_json(session)
         except Exception as exc:  # pragma: no cover
             self._send_json({"error": self._safe_error(exc)}, status=500)
         finally:
@@ -58,7 +54,11 @@ class DebateGuiHandler(SimpleHTTPRequestHandler):
     def _stream_debate(self):
         if not _debate_semaphore.acquire(blocking=False):
             self._open_stream()
-            self._write_line({"type": "error", "error": "A debate is already running. Please wait."})
+            try:
+                self._write_line({"type": "error", "error": f"Server busy — at most {_MAX_CONCURRENT} debates may run concurrently."})
+                self._write_line({"type": "_done"})
+            except OSError:
+                pass
             return
         try:
             payload = self._read_json()
@@ -68,8 +68,9 @@ class DebateGuiHandler(SimpleHTTPRequestHandler):
             try:
                 if not self.wfile.closed:
                     self._write_line({"type": "error", "error": self._safe_error(exc)})
+                    self._write_line({"type": "_done"})
             except OSError:
-                pass  # client already disconnected — nothing to do
+                pass
         finally:
             _debate_semaphore.release()
 
@@ -89,12 +90,7 @@ class DebateGuiHandler(SimpleHTTPRequestHandler):
         self.wfile.flush()
 
     def _safe_error(self, exc: Exception) -> str:
-        msg = str(exc)
-        # Redact common API key patterns
-        msg = re.sub(r"key=[^'\s]+",            "key=REDACTED",    msg)
-        msg = re.sub(r"Bearer\s+\S+",           "Bearer REDACTED", msg)
-        msg = re.sub(r"(sk|gsk|AIza)-[A-Za-z0-9_\-]+", "REDACTED", msg)
-        return msg
+        return safe_error(exc)
 
     def _read_json(self) -> dict:
         length = int(self.headers.get("Content-Length", "0"))
@@ -103,15 +99,24 @@ class DebateGuiHandler(SimpleHTTPRequestHandler):
         raw = self.rfile.read(length).decode("utf-8")
         return json.loads(raw)
 
-    def _send_result_file(self):
-        if not RESULT_FILE.exists():
+    def _send_result_file(self, session_id: str | None):
+        try:
+            path = result_file(session_id)
+        except ValueError:
+            self.send_error(400)
+            return
+        if not path.exists():
             self._send_json({"topic": "", "history": [], "verdict": ""})
             return
-        self._send_bytes(RESULT_FILE.read_bytes(), ".json")
+        self._send_bytes(path.read_bytes(), ".json")
 
     def _send_static(self):
         route = unquote(self.path.split("?", 1)[0]).lstrip("/")
-        file_path = GUI_DIR / (route or "index.html")
+        try:
+            file_path = static_file(route)
+        except PermissionError:
+            self.send_error(403)
+            return
         if not file_path.exists() or not file_path.is_file():
             self.send_error(404)
             return
@@ -134,11 +139,8 @@ class DebateGuiHandler(SimpleHTTPRequestHandler):
 
 
 def main():
-    cfg  = ConfigManager()
-    host = cfg.server_host
-    port = cfg.server_port
-    server = ThreadingHTTPServer((host, port), DebateGuiHandler)
-    print(f"AI Debate GUI running at http://{host}:{port}")
+    server = ThreadingHTTPServer((_cfg.server_host, _cfg.server_port), DebateGuiHandler)
+    print(f"AI Debate GUI running at http://{_cfg.server_host}:{_cfg.server_port}")
     server.serve_forever()
 
 

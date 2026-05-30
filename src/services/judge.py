@@ -108,7 +108,7 @@ class Judge(JudgeRelayMixin, BaseAgent):
         self.logger.info("[judge] IPC mediator process started")
         try:
             for rnd in range(1, total_rounds + 1):
-                if not await self._relay_round(rnd):
+                if not await self._relay_round(rnd, is_final=(rnd == total_rounds)):
                     break
                 if self.beat_fn:
                     self.beat_fn()

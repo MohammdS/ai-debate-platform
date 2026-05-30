@@ -7,6 +7,7 @@ from src.skills import (
     EvidenceSkill,
     JudgeEvaluationSkill,
     RebuttalSkill,
+    RepetitionGuardSkill,
     SkillContext,
     SkillSelector,
     SocraticSkill,
@@ -180,3 +181,41 @@ def test_citation_skill_no_opponent_is_generic():
     result = skill.run(ctx)
     assert result.selected is True
     assert "source" in result.content.lower()
+
+
+def test_repetition_guard_round1_returns_fallback_selected():
+    skill = RepetitionGuardSkill()
+    ctx = make_ctx(transcript=[], round_num=1)
+    result = skill.run(ctx)
+    assert result.selected is True
+    assert "first-turn baseline" in result.content.lower()
+
+
+def test_repetition_guard_with_history_blocks_prior_phrases():
+    skill = RepetitionGuardSkill()
+    transcript = [
+        {"role": "assistant", "content": "Autonomous tutors improve access for remote students."},
+        {"role": "assistant", "content": "Universities can scale feedback with AI support."},
+    ]
+    ctx = make_ctx(transcript=transcript, round_num=3)
+    result = skill.run(ctx)
+    assert result.selected is True
+    assert "PREVIOUSLY ARGUED" in result.content
+    assert "Autonomous tutors improve access" in result.content
+
+
+def test_skill_selector_keeps_repetition_guard_even_when_cap_reached():
+    all_skills = [
+        RebuttalSkill(), EvidenceSkill(), CitationSkill(), RepetitionGuardSkill(), ToneModerationSkill(),
+    ]
+    selector = SkillSelector(all_skills, max_skills=1)
+    ctx = make_ctx(
+        skill_type="evidence_based",
+        opponent_last_message="AI tutoring harms quality",
+        transcript=[{"role": "assistant", "content": "AI tools increase access and support."}],
+        round_num=5,
+    )
+    results = selector.select(ctx)
+    selected_names = {r.skill_name for r in results if r.selected}
+    assert "repetition_guard" in selected_names
+    assert "tone_moderation" in selected_names

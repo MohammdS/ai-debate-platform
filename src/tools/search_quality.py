@@ -35,6 +35,27 @@ _BLOCKED: frozenset[str] = frozenset({
     "answers.yahoo.com", "wikianswers.com",
 })
 
+_BLOCKED_PATTERNS: tuple[re.Pattern[str], ...] = (
+    # Adult / explicit content
+    re.compile(r"(porn|xxx|xvideos?|xhamster|redtube|onlyfans|hentai)", re.I),
+    # Low-signal entertainment/aggregator patterns often returned for "who's better"
+    re.compile(r"(athreascans|cloakunfurled|castbox|shazam|visitscotland)", re.I),
+    # Generic "who's better" clickbait pages across unrelated topics
+    re.compile(r"who['’]?s[-_\s]?better", re.I),
+)
+
+_TRUSTED_SPORTS: frozenset[str] = frozenset({
+    "uefa.com", "fifa.com", "laliga.com", "premierleague.com",
+    "espn.com", "skysports.com", "bbc.com/sport", "reuters.com",
+    "theathletic.com", "nytimes.com/athletic", "transfermarkt.com",
+    "fbref.com", "whoscored.com", "worldfootball.net",
+})
+
+_SPORT_HINTS: tuple[str, ...] = (
+    "football", "soccer", "barcelona", "real madrid", "champions league",
+    "la liga", "el clasico",
+)
+
 
 def score_domain(url: str) -> int:
     """Return 1 (generic), 2 (reputable news/org), or 3 (academic/government)."""
@@ -50,7 +71,24 @@ def score_domain(url: str) -> int:
 
 def is_blocked(url: str) -> bool:
     """Return True if the URL should be discarded entirely."""
-    return score_domain(url) == 0
+    if score_domain(url) == 0:
+        return True
+    return any(p.search(url) for p in _BLOCKED_PATTERNS)
+
+
+def is_allowed_for_topic(url: str, topic: str) -> bool:
+    """Topic-aware URL gate.
+
+    For football/soccer topics, only trusted sports/news domains are allowed.
+    For other topics, keep existing blocking behavior.
+    """
+    if is_blocked(url):
+        return False
+    topic_l = topic.lower()
+    if any(h in topic_l for h in _SPORT_HINTS):
+        url_l = url.lower()
+        return any(d in url_l for d in _TRUSTED_SPORTS)
+    return True
 
 
 # ---------------------------------------------------------------------------

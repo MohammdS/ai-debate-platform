@@ -1,382 +1,246 @@
 # AI Debate Platform
 
-A professional, modular Python platform where AI agents engage in structured competitive debates — with a judge, skill selection, fault tolerance, and multi-provider support.
+A modular Python 3.12 platform where two AI debaters argue opposing stances, a judge relays turns over typed IPC channels, and the system exports a scored verdict, transcript, token usage, and skill log.
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue?logo=python)
 ![uv](https://img.shields.io/badge/uv-package%20manager-purple)
-![Ruff](https://img.shields.io/badge/Ruff-linted-green)
-![pytest](https://img.shields.io/badge/pytest-≥85%25%20coverage-brightgreen)
-![License](https://img.shields.io/badge/License-MIT-lightgrey)
+![Ruff](https://img.shields.io/badge/Ruff-passing-green)
+![pytest](https://img.shields.io/badge/pytest-416%20passed-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-91.74%25-brightgreen)
 
----
+## Evaluation Evidence
 
-## Architecture Overview
+Last verified on 2026-05-30:
 
-```mermaid
-graph TB
-    subgraph "Entry Points"
-        CLI["CLI (src/main.py)"]
-        GUI["GUI (src/gui/server.py)"]
-    end
-    subgraph "SDK Layer"
-        LLM["LLMService"]
-        GK["ApiGatekeeper"]
-        Clients["Clients: Groq | Gemini | OpenAI | ZAI | OpenRouter | Mock"]
-    end
-    subgraph "Services Layer"
-        DA["Debater A (Pro)"]
-        DB["Debater B (Contra)"]
-        J["Judge"]
-        Orch["DebateOrchestrator"]
-        WD["WatchdogAgent"]
-    end
-    subgraph "Skills Layer"
-        SS["SkillSelector"]
-        Skills["RebuttalSkill | EvidenceSkill | RepetitionGuardSkill | ProgressionSkill | CitationSkill | SocraticSkill | SummarizationSkill | ToneModeration"]
-    end
-    subgraph "IPC"
-        CH["asyncio.Queue Channels"]
-    end
-    subgraph "Config"
-        CFG["config/setup.json | models.json | skills.json | rate_limits.json | pricing.json"]
-    end
-    CLI --> LLM
-    GUI --> LLM
-    LLM --> GK
-    LLM --> Clients
-    Clients --> DA
-    Clients --> DB
-    Clients --> J
-    DA --> CH
-    DB --> CH
-    J --> CH
-    CH --> Orch
-    Orch --> WD
-    DA --> SS
-    DB --> SS
-    SS --> Skills
-    GK --> CFG
-```
+| Criterion | Evidence | Verification command |
+|---|---|---|
+| Python package managed with `uv` | `pyproject.toml` and `uv.lock` are committed | `uv sync` |
+| Full automated test suite | `416 passed` | `uv run pytest -q` |
+| Coverage above 85% | `91.74%` total coverage | `uv run pytest --cov=src --cov-report=term-missing` |
+| Ruff linting | `All checks passed!` | `uv run ruff check src tests` |
+| Source file line cap | Every production file in `src/` is <= 150 lines | `uv run pytest tests/unit/test_submission_readiness.py -q` |
+| No committed secrets | `.env.example` only contains placeholders; `.env` is ignored | `git check-ignore -v .env` |
+| Assignment traceability | 33 requirements mapped to implementation and tests | [docs/REQUIREMENTS_TRACEABILITY.md](docs/REQUIREMENTS_TRACEABILITY.md) |
 
----
+Key grading artifacts:
 
-## Debate Flow
+- Product requirements: [docs/PRD.md](docs/PRD.md)
+- Architecture plan: [docs/PLAN.md](docs/PLAN.md)
+- Testing guide: [docs/TESTING.md](docs/TESTING.md)
+- Limitations: [docs/LIMITATIONS.md](docs/LIMITATIONS.md)
+- Latest debate transcript: [docs/debate_transcript.md](docs/debate_transcript.md)
+- Latest skill log: [docs/skill_log.md](docs/skill_log.md)
+- Skill configuration: [config/skills.json](config/skills.json)
 
-```mermaid
-sequenceDiagram
-    participant O as Orchestrator
-    participant A as Debater A (Pro)
-    participant J as Judge
-    participant B as Debater B (Contra)
+## What The Project Demonstrates
 
-    O->>A: RELAY (seed: "Begin debate")
-    loop 10 rounds
-        A->>A: SkillSelector.select()
-        A->>J: ARGUMENT (round N)
-        J->>B: RELAY (A's argument)
-        B->>B: SkillSelector.select()
-        B->>J: ARGUMENT (round N)
-        J->>A: RELAY (B's argument)
-    end
-    J->>J: evaluate(transcript)
-    J->>O: VERDICT
-    J->>A: SHUTDOWN
-    J->>B: SHUTDOWN
-```
-
----
-
-## Skill-Selection Pipeline
-
-```mermaid
-flowchart LR
-    CTX["SkillContext\n(topic, stance, round, transcript)"] --> SS["SkillSelector"]
-    SS --> RG["RepetitionGuardSkill\n(block repeated claims)"]
-    SS --> RB["RebuttalSkill\n(direct counter-argument)"]
-    SS --> EV["EvidenceSkill\n(facts & data)"]
-    SS --> CI["CitationSkill\n(source attribution)"]
-    SS --> PR["ProgressionSkill\n(topic advancement)"]
-    SS --> SC["SocraticSkill\n(probing questions)"]
-    SS --> SM["SummarizationSkill\n(transcript summary)"]
-    SS --> TM["ToneModeration\n(civility check)"]
-    RG & RB & EV & CI & PR & SC & SM & TM --> GUID["Skill Guidance\n(injected into prompt)"]
-```
-
----
-
-## Installation
-
-### Prerequisites
-
-- Python 3.12 or higher
-- [`uv`](https://docs.astral.sh/uv/) package manager
-
-```bash
-# Install uv (macOS / Linux)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Clone the repository
-git clone <repo-url>
-cd ai-debate-platform
-
-# Install all dependencies (creates .venv automatically)
-uv sync
-```
-
-### Environment Setup
-
-```bash
-# Copy the example environment file
-cp .env-example .env
-
-# Edit .env and add your API keys (only needed for real providers)
-# OPENAI_API_KEY=sk-...
-# GEMINI_API_KEY=...
-# GROQ_API_KEY=gsk_...
-# ZAI_API_KEY=...
-# OPENROUTER_API_KEY=sk-or-...
-```
-
----
+- Three-agent debate orchestration: Pro debater, Contra debater, and Judge.
+- Typed IPC over `asyncio.Queue` channels instead of direct debater-to-debater calls.
+- Provider abstraction for OpenAI, Gemini, Groq, ZAI, OpenRouter, and deterministic Mock mode.
+- API Gatekeeper with rate limits, retry handling, timeout control, token accounting, and cost estimates.
+- Watchdog supervision for heartbeat monitoring and restart handling.
+- Skill selection per turn, including rebuttal, evidence, citation, progression, Socratic, summarization, tone moderation, and repetition guard behavior.
+- CLI and browser GUI, including NDJSON live transcript streaming.
+- Markdown and JSON result exports with transcript, verdict, token usage, and skill log.
 
 ## Quick Start
 
-### Mock Demo — No API Keys Required
+Run a complete deterministic debate with no API keys and no network calls:
 
 ```bash
-# One-command mock debate (completely free, no network calls)
+uv sync
 uv run python -m src.main \
   --topic "AI in education" \
   --stance-a "AI improves learning" \
-  --stance-b "AI harms education" \
+  --stance-b "AI harms deep learning" \
   --provider-a mock \
-  --provider-b mock
+  --provider-b mock \
+  --judge-provider mock
 ```
 
-### With Real Providers
+Launch the GUI:
 
 ```bash
-# Groq vs ZAI (both have free tiers)
+uv run python -m src.gui.server
+# Open http://127.0.0.1:8000
+```
+
+Run with real providers after adding API keys to `.env`:
+
+```bash
 uv run python -m src.main \
   --topic "Universal Basic Income" \
   --stance-a "UBI should be implemented" \
   --stance-b "UBI is economically harmful" \
   --provider-a groq \
-  --provider-b zai
-
-# OpenAI vs Gemini
-uv run python -m src.main \
-  --topic "Space colonisation" \
-  --stance-a "Humanity must colonise Mars" \
-  --stance-b "We should fix Earth first" \
-  --provider-a openai \
-  --provider-b gemini
+  --provider-b zai \
+  --judge-provider openrouter
 ```
 
-### Interactive CLI Menu
+## Installation
+
+Prerequisites:
+
+- Python 3.12 or higher
+- `uv` package manager
 
 ```bash
-uv run python -m src.main
-# Follow the on-screen prompts to configure topic, stances, and providers
+git clone <repo-url>
+cd ai-debate-platform
+uv sync
+cp .env.example .env
 ```
 
-### GUI
+`.env.example` contains placeholders for the supported real providers:
 
-```bash
-uv run python -m src.gui.server
-# Open http://127.0.0.1:8000 in your browser
+```dotenv
+OPENAI_API_KEY=your_openai_key_here
+GEMINI_API_KEY=your_gemini_key_here
+GROQ_API_KEY=your_groq_key_here
+ZAI_API_KEY=your_zai_key_here
+OPENROUTER_API_KEY=your_openrouter_key_here
 ```
 
----
+Mock mode does not require `.env`.
 
-## Configuration Guide
+## Architecture
 
-All runtime parameters are loaded from `config/` — no hardcoded values exist in source code.
+```mermaid
+graph TB
+    subgraph Entry_Points
+        CLI["CLI: src/main.py"]
+        GUI["GUI: src/gui/server.py"]
+    end
+    subgraph SDK
+        LLM["LLMService"]
+        Clients["Provider Clients"]
+        GK["ApiGatekeeper"]
+    end
+    subgraph Debate_Services
+        A["Debater A / Pro"]
+        B["Debater B / Contra"]
+        J["Judge"]
+        O["DebateOrchestrator"]
+        W["WatchdogAgent"]
+    end
+    subgraph Skills
+        SS["SkillSelector"]
+        Pool["Rebuttal | Evidence | Citation | Repetition | Progression | Socratic | Summary | Tone"]
+    end
+    subgraph IPC
+        Q["Typed asyncio.Queue channels"]
+    end
+    CLI --> LLM
+    GUI --> LLM
+    LLM --> Clients
+    LLM --> GK
+    Clients --> A
+    Clients --> B
+    Clients --> J
+    A --> Q
+    B --> Q
+    J --> Q
+    Q --> O
+    O --> W
+    A --> SS
+    B --> SS
+    SS --> Pool
+```
 
-### `config/setup.json`
+Debate flow:
 
-Controls all debate and service parameters:
+```mermaid
+sequenceDiagram
+    participant O as Orchestrator
+    participant A as Debater A
+    participant J as Judge
+    participant B as Debater B
 
-| Section | Key | Default | Description |
-|---------|-----|---------|-------------|
-| `api` | `groq_model` | `llama-3.1-8b-instant` | Model used for Groq provider |
-| `api` | `gemini_model` | `gemini-2.5-flash` | Model used for Gemini provider |
-| `api` | `openrouter_model` | `openai/gpt-oss-120b:free` | Model used for OpenRouter |
-| `debate` | `total_rounds` | `10` | Number of debate rounds (20 turns total) |
-| `debate` | `debater_max_words` | `120` | Hard word limit per debater response |
-| `debate` | `judge_max_words` | `200` | Hard word limit for judge verdict |
-| `debate` | `temperature` | `0.7` | LLM sampling temperature |
-| `defaults` | `provider_a` | `zai` | Default provider for Debater A |
-| `defaults` | `provider_b` | `groq` | Default provider for Debater B |
-| `defaults` | `judge_provider` | `groq` | Default provider for the Judge |
-| `server` | `host` / `port` | `127.0.0.1:8000` | GUI server address |
-| `watchdog` | `timeout_seconds` | `600` | Debate-level timeout before watchdog intervenes |
-| `watchdog` | `max_failures` | `3` | Max consecutive failures before debate abort |
+    O->>A: Seed RELAY
+    loop configured rounds
+        A->>J: ARGUMENT
+        J->>B: RELAY
+        B->>J: ARGUMENT
+        J->>A: RELAY
+    end
+    J->>J: Evaluate transcript
+    J->>O: VERDICT
+    J->>A: SHUTDOWN
+    J->>B: SHUTDOWN
+```
 
-### `config/models.json`
+## Configuration
 
-Maps provider names to their available model IDs. Update this file when provider model names change.
+Runtime behavior is configured under `config/`:
 
-### `config/rate_limits.json`
+| File | Purpose |
+|---|---|
+| [config/setup.json](config/setup.json) | Debate rounds, word/token limits, provider defaults, GUI server settings, watchdog timing, skill pool |
+| [config/models.json](config/models.json) | Role-to-provider defaults and model overrides |
+| [config/rate_limits.json](config/rate_limits.json) | Provider RPM, timeout, retry, and retry-after settings |
+| [config/pricing.json](config/pricing.json) | Token price estimates by provider/model |
+| [config/skills.json](config/skills.json) | Skill enablement and priority weights |
+| [config/skills_prompts.json](config/skills_prompts.json) | Prompt fragments injected by skills |
 
-Per-provider rate-limit configuration:
+Supported providers:
 
-| Provider | RPM | Timeout | Max Retries | Retry After |
-|----------|-----|---------|-------------|-------------|
-| `openai` | 60 | 60s | 3 | 30s |
-| `gemini` | 60 | 60s | 3 | 30s |
-| `groq` | 20 | 60s | 5 | 60s |
-| `zai` | 60 | 60s | 3 | 30s |
-| `mock` | 10000 | 5s | 1 | 0s |
-
-### `config/skills.json`
-
-Configures which skills are enabled and their priority weights for `SkillSelector`.
-
-### `config/pricing.json`
-
-Per-provider token pricing for cost estimation displayed after each debate.
-
-### `config/skills_prompts.json`
-
-System prompt fragments injected per skill. Edit these to tune how each skill guides the debater.
-
----
-
-## IPC, Gatekeeper, and Watchdog
-
-### IPC Channels (`src/ipc/`)
-
-All agent communication flows through typed `asyncio.Queue` channels defined in `src/ipc/channel.py`. Every message is a structured `IPCMessage` (see `src/ipc/message.py`) with a `MessageType` enum (`ARGUMENT`, `RELAY`, `VERDICT`, `SHUTDOWN`, `HEARTBEAT`). This decouples agents completely — they never call each other directly.
-
-For full design details see `docs/PRD_ipc.md`.
-
-### API Gatekeeper (`src/shared/gatekeeper.py`)
-
-`ApiGatekeeper` sits in front of every outbound LLM call. It enforces:
-
-- **Per-provider rate limits** loaded from `config/rate_limits.json`
-- **Token-bucket backpressure** — requests queue rather than fail immediately
-- **Automatic retry with exponential backoff** on transient errors
-- **Structured error propagation** so the orchestrator can decide whether to abort or retry
-
-For full design details see `docs/PRD_gatekeeper.md`.
-
-### Watchdog Agent (`src/services/watchdog_agent.py`)
-
-`WatchdogAgent` runs as a concurrent coroutine throughout the debate. It:
-
-- Monitors `HEARTBEAT` IPC messages from both debaters and the judge
-- Triggers a `SHUTDOWN` sequence if no heartbeat is received within `watchdog.timeout_seconds`
-- Counts consecutive failures and aborts the debate after `watchdog.max_failures` is exceeded
-- Logs all events for post-mortem analysis
-
-For full design details see `docs/PRD_watchdog.md`.
-
----
-
-## Provider Abstraction
-
-All LLM providers implement `BaseAIClient` (`src/sdk/base_client.py`), which exposes a single `complete(prompt, system_prompt, max_tokens, temperature)` coroutine. `LLMService` (`src/sdk/llm_service.py`) is the sole entry point — callers never instantiate clients directly. `ClientFactory` (`src/sdk/factory.py`) handles construction.
-
-| Provider | Class | Env Var | Free Tier |
-|----------|-------|---------|-----------|
-| OpenAI | `OpenAIClient` | `OPENAI_API_KEY` | No |
-| Gemini | `GeminiClient` | `GEMINI_API_KEY` | Yes (limited) |
-| Groq | `GroqClient` | `GROQ_API_KEY` | Yes |
-| ZAI | `ZAIClient` | `ZAI_API_KEY` | Yes |
-| OpenRouter | `OpenRouterClient` | `OPENROUTER_API_KEY` | Yes (free models) |
-| Mock | `MockAIClient` | None required | Yes (infinite) |
-
----
+| Provider | Client | Env var |
+|---|---|---|
+| OpenAI | `OpenAIClient` | `OPENAI_API_KEY` |
+| Gemini | `GeminiClient` | `GEMINI_API_KEY` |
+| Groq | `GroqClient` | `GROQ_API_KEY` |
+| ZAI | `ZaiClient` | `ZAI_API_KEY` |
+| OpenRouter | `OpenRouterClient` | `OPENROUTER_API_KEY` |
+| Mock | `MockAIClient` | None |
 
 ## Testing
 
 ```bash
-# Run all tests
-uv run pytest
+# Full suite
+uv run pytest -q
 
-# Run with coverage report
+# Coverage report
 uv run pytest --cov=src --cov-report=term-missing
 
-# Run only fast unit tests
-uv run pytest tests/unit/ -v
+# Lint
+uv run ruff check src tests
 
-# Run a specific module
-uv run pytest tests/unit/test_judge.py -v
-
-# Run linter
-uv run ruff check src/
+# Submission-specific checks
+uv run pytest tests/unit/test_submission_readiness.py -q
 ```
 
-See `docs/TESTING.md` for a full breakdown of test categories and how to write new tests.
-
----
+The tests are deterministic and do not require real API keys because provider calls are mocked or routed through `MockAIClient`.
 
 ## Project Structure
 
-```
+```text
 ai-debate-platform/
-├── config/
-│   ├── setup.json          # All runtime parameters
-│   ├── models.json         # Provider model IDs
-│   ├── rate_limits.json    # Per-provider rate limits
-│   ├── pricing.json        # Token cost estimates
-│   ├── skills.json         # Skill weights and enablement
-│   └── skills_prompts.json # Skill prompt fragments
-├── docs/
-│   ├── PRD.md
-│   ├── PLAN.md
-│   ├── TODO.md
-│   ├── PRD_ipc.md
-│   ├── PRD_gatekeeper.md
-│   ├── PRD_watchdog.md
-│   ├── REQUIREMENTS_TRACEABILITY.md
-│   ├── DEMO_TRANSCRIPT.md
-│   ├── TESTING.md
-│   └── LIMITATIONS.md
-├── src/
-│   ├── sdk/                # LLM provider abstraction layer
-│   ├── services/           # Debater, Judge, Orchestrator, Watchdog
-│   ├── shared/             # Config, Gatekeeper, Logger, Version
-│   ├── skills/             # All skill classes + SkillSelector
-│   ├── ipc/                # asyncio.Queue channel definitions
-│   ├── cli/                # Interactive menu
-│   ├── gui/                # FastAPI server + SSE streaming
-│   ├── tools/              # Web search tool
-│   └── main.py             # CLI entry point
-├── tests/
-│   └── unit/               # 25+ unit test files
-├── results/                # Exported debate transcripts (auto-generated)
-├── .env-example            # API key template
-├── pyproject.toml
-└── uv.lock
+|-- config/                 # Runtime configuration and pricing/rate settings
+|-- docs/                   # PRD, PLAN, testing guide, traceability, limitations, transcript
+|-- gui/                    # Browser frontend
+|-- src/
+|   |-- cli/                # Interactive and argument-based CLI
+|   |-- gui/                # HTTP server and streaming debate runner
+|   |-- ipc/                # Message types and typed queue channels
+|   |-- models/             # Pydantic data models
+|   |-- sdk/                # Provider clients and LLMService
+|   |-- services/           # Debater, Judge, Orchestrator, Watchdog, exporter
+|   |-- shared/             # Config, logger, constants, gatekeeper
+|   |-- skills/             # Skill classes and selector
+|   `-- tools/              # Web search and search quality helpers
+|-- tests/                  # Unit and integration tests
+|-- .env.example            # Safe API key template
+|-- pyproject.toml
+`-- uv.lock
 ```
-
----
 
 ## Screenshots
 
-_Run `make demo` or use the GUI at `http://127.0.0.1:8000` to see the platform in action._
+<img width="1512" height="982" alt="AI Debate Platform setup screen" src="https://github.com/user-attachments/assets/ddf09ebd-181f-4064-a0f7-57ca5324a1f1" />
 
----
+<img width="1512" height="982" alt="AI Debate Platform live transcript" src="https://github.com/user-attachments/assets/c1e34436-58af-4503-95b8-be5489f97012" />
 
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [docs/PRD.md](docs/PRD.md) | Product Requirements Document |
-| [docs/PLAN.md](docs/PLAN.md) | Architecture and implementation plan |
-| [docs/TODO.md](docs/TODO.md) | Task tracking |
-| [docs/PRD_ipc.md](docs/PRD_ipc.md) | IPC channel design |
-| [docs/PRD_gatekeeper.md](docs/PRD_gatekeeper.md) | API Gatekeeper design |
-| [docs/PRD_watchdog.md](docs/PRD_watchdog.md) | Watchdog Agent design |
-| [docs/REQUIREMENTS_TRACEABILITY.md](docs/REQUIREMENTS_TRACEABILITY.md) | Full requirements-to-implementation mapping |
-| [docs/DEMO_TRANSCRIPT.md](docs/DEMO_TRANSCRIPT.md) | Sample debate transcript |
-| [docs/TESTING.md](docs/TESTING.md) | Test architecture and commands |
-| [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | Known limitations |
-
----
+<img width="1512" height="982" alt="AI Debate Platform judge verdict" src="https://github.com/user-attachments/assets/cadf393a-9e4f-407d-a8b3-d25721bb2a5d" />
 
 ## License
 

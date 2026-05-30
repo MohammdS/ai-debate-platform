@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 
@@ -19,26 +20,27 @@ WIN_RE = [re.compile(p, re.I) for p in [
     r"declare\s+(pro|contra)\s+the\s+winner",
     r"\b(pro|contra)\s+(?:side|debater)\s+wins?\b",
 ]]
-_MAX_WORDS = MAX_WORDS
-_MAX_TRANSCRIPT_ENTRIES = MAX_TRANSCRIPT_ENTRIES
-
 CLARIFY_PROMPT = (
     "Your verdict is missing the required WINNER declaration. "
     "Append one line in EXACTLY this format — no extra words:\n"
     "WINNER: Pro\nor\nWINNER: Contra"
 )
 
-# (field, max_score) — 3×20 + 4×10 = 100
-_SCORE_FIELDS: tuple[tuple[str, int], ...] = (
+_SCORE_FIELDS_FALLBACK: tuple[tuple[str, int], ...] = (
     ("logic",            20),
     ("evidence",         20),
     ("rebuttal_quality", 20),
     ("relevance",        10),
     ("clarity",          10),
     ("citation_quality", 10),
-    ("consistency",      10),   # 10 = no repetition, 0 = very repetitive
+    ("consistency",      10),
 )
-
+_raw_score_fields: dict = get_agent_prompt("judge").get("score_fields", {})
+_SCORE_FIELDS: tuple[tuple[str, int], ...] = (
+    tuple((k, int(v)) for k, v in _raw_score_fields.items())
+    if _raw_score_fields
+    else _SCORE_FIELDS_FALLBACK
+)
 _JSON_BLOCK_RE = re.compile(r"```json\s*([\s\S]*?)\s*```", re.I)
 
 
@@ -53,25 +55,43 @@ def build_verdict_schema() -> dict:
     }
 
 
+def _validate_scores(verdict: dict) -> dict:
+    """Clamp every score to [0, max], recompute totals, return corrected dict."""
+    scores = verdict.get("scores", {})
+    for side in ("pro", "contra"):
+        s = scores.get(side, {})
+        if not isinstance(s, dict):
+            scores[side] = s = {}
+        total = 0
+        for field, mx in _SCORE_FIELDS:
+            val = s.get(field, 0)
+            try:
+                val = int(val)
+            except (TypeError, ValueError):
+                val = 0
+            val = max(0, min(val, mx))
+            s[field] = val
+            total += val
+        s["total"] = total          # always recompute — never trust the LLM's arithmetic
+    return verdict
+
+
 def parse_structured_verdict(text: str) -> dict | None:
     """Try to extract a structured verdict dict from *text*.
 
     Attempts (1) full-text JSON parse, then (2) ```json...``` code block.
+    Scores are clamped to their declared maximums and totals are recomputed.
     Returns None on failure (graceful degradation).
     """
-    # Attempt 1: full text
+    raw: dict | None = None
     try:
-        return json.loads(text.strip())
+        raw = json.loads(text.strip())
     except (json.JSONDecodeError, ValueError):
-        pass
-    # Attempt 2: fenced code block
-    m = _JSON_BLOCK_RE.search(text)
-    if m:
-        try:
-            return json.loads(m.group(1))
-        except (json.JSONDecodeError, ValueError):
-            pass
-    return None
+        m = _JSON_BLOCK_RE.search(text)
+        if m:
+            with contextlib.suppress(json.JSONDecodeError, ValueError):
+                raw = json.loads(m.group(1))
+    return _validate_scores(raw) if raw is not None else None
 
 
 def format_verdict_for_display(verdict_dict: dict) -> str:
@@ -104,14 +124,22 @@ def build_system_prompt() -> str:
         for k, v in cfg.get("scoring_criteria", {}).items()
     )
     rules = "\n".join(f"- {r}" for r in cfg.get("rules", []))
+
+    penalization = "\n".join(
+        f"  {i + 1}. {item}"
+        for i, item in enumerate(cfg.get("penalization_criteria", []))
+    )
+    additional = "\n".join(f"- {r}" for r in cfg.get("additional_scoring_rules", []))
+    reasoning = "\n".join(f"- {r}" for r in cfg.get("reasoning_rules", []))
+
     return (
         f"{cfg.get('system', '')}\n\n"
         "At the end of the debate you issue a final verdict using EXACTLY this format:\n\n"
-        f"{cfg.get('verdict_format', '')}\n\nRULES FOR SCORING:\n{criteria}\n{rules}"
-        "\n- Penalize named sources that are unsupported, vague, invented, or unverifiable."
-        "\n- Penalize factual mistakes even when the speaker names a source."
-        "\n- Do not reward a source name unless the claim is plausible and attribution is specific."
-        "\n- Penalize hallucinated citations, unsupported numbers, repeated phrases, topic drift,"
-        " and failure to answer the previous argument."
-        "\n- When possible, respond with valid JSON matching the verdict schema."
+        f"{cfg.get('verdict_format', '')}\n\n"
+        f"RULES FOR SCORING:\n{criteria}\n{rules}\n\n"
+        f"MANDATORY PENALIZATION CRITERIA — deduct points for ALL of the following:\n{penalization}\n\n"
+        f"ADDITIONAL SCORING RULES:\n{additional}\n\n"
+        f"CRITICAL — REASONING SECTION RULES:\n{reasoning}\n"
+        "- MANDATORY: Your verdict MUST be valid JSON matching the verdict schema above. "
+        "Plain-text fallback is not accepted. If you cannot produce valid JSON, output ONLY the JSON block."
     )

@@ -69,7 +69,8 @@
       "rules": [
         "A tie is NEVER acceptable. Choose exactly one winner. If scores are equal, break the tie on Rebuttal Quality.",
         "Do not invent facts or sources.",
-        "Penalize hallucinated citations, unsupported numbers, repeated phrases, topic drift, and failure to answer the previous argument.",
+        "Penalize hallucinated citations, unsupported numbers, factual mistakes, repeated phrases, topic drift, and failure to answer the previous argument.",
+        "Do not reward a source name unless the cited claim is relevant, verifiable, and actually supports the argument.",
         "Explain the winner in 2-3 sentences using logic, rebuttal quality, clarity, and consistency.",
         "Do not soften criticism. If one side performed poorly, say so directly."
       ]

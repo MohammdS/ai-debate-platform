@@ -1,43 +1,41 @@
-# PRD — API Gatekeeper
+# PRD - API Gatekeeper
 
 ## Problem
-All three agents share the same LLM provider. Without coordination, concurrent coroutines could hammer the API simultaneously, exceed rate limits, or fail silently on transient errors.
+
+The debate agents may share the same provider. Without coordination, concurrent calls can exceed provider rate limits, hang indefinitely, or hide transient failures.
 
 ## Requirement
-A centralized control layer that:
-1. Enforces a configurable requests-per-minute (RPM) limit across all agents.
-2. Adds per-call timeouts.
-3. Retries failed calls with exponential backoff.
 
-## Solution (`src/shared/gatekeeper.py`)
+All outbound LLM calls must pass through a central gatekeeper that:
 
-### Interface
+- Enforces provider-specific requests-per-minute limits.
+- Applies per-call timeouts.
+- Retries transient failures with backoff.
+- Tracks token usage and estimated cost.
+- Logs structured call outcomes.
+
+## Solution
+
+`src/shared/gatekeeper.py` implements `ApiGatekeeper`.
+
 ```python
-gatekeeper = ApiGatekeeper(rpm_limit=30, timeout=60.0)
+gatekeeper = ApiGatekeeper(provider="groq", model="llama-3.1-8b-instant")
 result = await gatekeeper.execute(client.generate_response, messages)
 ```
 
-### Rate Limiting
-- `interval = 60 / rpm_limit` seconds between calls.
-- `asyncio.Lock` ensures only one call proceeds at a time through the throttle gate.
-- Lock is released **before** the API call — callers queue on the lock, not on each other's network latency.
+## Behavior
 
-### Timeout
-- Each call wrapped in `asyncio.wait_for(..., timeout=self.timeout)`.
-- `TimeoutError` is retried like any other exception.
-
-### Retry Logic
-- Up to 3 attempts with `2^attempt` second backoff (0s, 2s, 4s).
-- On final attempt, exception propagates to caller.
-
-## Configuration (`config/setup.json`)
-```json
-"api": {
-  "rate_limit_rpm": 30,
-  "timeout_seconds": 60.0
-}
-```
+- Loads RPM, timeout, retry count, and retry-after settings from `config/rate_limits.json`.
+- Uses an `asyncio.Lock` and monotonic timestamp per provider to space outbound calls.
+- Wraps each call in `asyncio.wait_for`.
+- Retries failures up to the configured limit.
+- Accumulates input tokens, output tokens, latency, errors, and estimated USD cost.
 
 ## Files
+
 - `src/shared/gatekeeper.py`
+- `src/shared/rate_config.py`
+- `config/rate_limits.json`
+- `config/pricing.json`
 - `tests/unit/test_gatekeeper.py`
+- `tests/unit/test_rate_config.py`

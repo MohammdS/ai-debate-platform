@@ -1,58 +1,58 @@
-# PRD — IPC Layer
+# PRD - IPC Layer
 
 ## Problem
-Original implementation used direct async function calls in a single process with a shared history list. Agents were not truly independent — no message-passing boundary existed between them.
+
+Direct function calls between agents hide the communication boundary and make the debate look like one shared procedure rather than independent agents exchanging messages.
 
 ## Requirement
-The professor's lecture states: *"The agent IS a process. Two agents = two processes running in parallel. Communication between agents is exactly IPC — Signals, FIFO, Queues, Sockets."*
 
-All inter-agent communication must cross an explicit IPC boundary. The debate must flow: child → father → child (no direct debater-to-debater contact).
+All inter-agent communication must cross an explicit IPC boundary. The debate flow must be:
+
+```text
+Debater A -> Judge -> Debater B
+Debater B -> Judge -> Debater A
+Judge -> Orchestrator for final verdict
+```
+
+Debaters must never call each other directly.
 
 ## Solution
 
-### Message Protocol (`src/ipc/message.py`)
-`DebateMessage` dataclass — the wire envelope:
+`src/ipc/` implements typed queue-based IPC:
 
-| Field | Type | Description |
-|---|---|---|
-| `msg_type` | `MessageType` | ARGUMENT / RELAY / VERDICT / SHUTDOWN |
-| `sender` | `str` | Originating agent name |
-| `receiver` | `str` | Target agent name |
-| `payload` | `str` | Text content |
-| `round_num` | `int` | Current debate round |
-| `timestamp` | `float` | Unix timestamp (auto-set) |
+- `MessageType`: `ARGUMENT`, `RELAY`, `VERDICT`, `SHUTDOWN`, `HEARTBEAT`
+- `DebateMessage`: message envelope with sender, receiver, payload, round, and timestamp
+- `IpcChannel`: named `asyncio.Queue[str]` wrapper that serializes messages to JSON
 
-Messages are serialized to **JSON strings** on the queue (not Python objects) to make the IPC boundary explicit.
+## Channel Topology
 
-### Channel (`src/ipc/channel.py`)
-`IpcChannel` wraps `asyncio.Queue[str]`:
-- `send(msg)` — serialize to JSON, put on queue
-- `receive()` — `asyncio.wait_for(queue.get(), timeout)` — raises `TimeoutError` on timeout
-- Named for logging clarity (`"a_to_judge"`, `"judge_to_b"`, etc.)
-
-### Channel Topology
-```
-a_to_judge : debater_a.outbox  → judge.inbox_a
-b_to_judge : debater_b.outbox  → judge.inbox_b
-judge_to_a : judge.outbox_a    → debater_a.inbox
-judge_to_b : judge.outbox_b    → debater_b.inbox
-verdict_ch : judge.verdict_ch  → orchestrator
+```text
+Debater A outbox -> a_to_judge -> Judge inbox A
+Judge outbox B  -> judge_to_b -> Debater B inbox
+Debater B outbox -> b_to_judge -> Judge inbox B
+Judge outbox A  -> judge_to_a -> Debater A inbox
+Judge verdict   -> verdict_ch -> Orchestrator
 ```
 
-### Bootstrap
-Both debater_a and judge block waiting for the first message. Orchestrator sends a synthetic `RELAY` to debater_a before `asyncio.gather` starts.
+## Bootstrap
 
-## Files Changed
-- `src/ipc/__init__.py` — new
-- `src/ipc/message.py` — new
-- `src/ipc/channel.py` — new
-- `src/services/debater.py` — added `inbox`, `outbox`, `run()`
-- `src/services/judge.py` — added channel attrs, `run(total_rounds)`
-- `src/services/orchestrator.py` — replaced sequential loop with `_wire_channels()` + `asyncio.gather`
+The orchestrator sends one synthetic `RELAY` to Debater A before `asyncio.gather` starts. This avoids startup deadlock while preserving the judge-mediated flow.
+
+## Files
+
+- `src/ipc/message.py`
+- `src/ipc/channel.py`
+- `src/ipc/protocol.py`
+- `src/ipc/heartbeat.py`
+- `src/services/debater_ipc.py`
+- `src/services/judge.py`
+- `src/services/orchestrator.py`
 
 ## Tests
-- `tests/unit/test_ipc_message.py` — round-trip, enum behaviour, timestamp
-- `tests/unit/test_ipc_channel.py` — send/receive, timeout, ordering
-- `tests/unit/test_debater.py` — run() loop with mock channels
-- `tests/unit/test_judge.py` — run() mediator with mock channels
-- `tests/unit/test_orchestrator.py` — full end-to-end with mock client
+
+- `tests/unit/test_ipc_message.py`
+- `tests/unit/test_ipc_channel.py`
+- `tests/unit/test_ipc_protocol.py`
+- `tests/unit/test_debater.py`
+- `tests/unit/test_judge.py`
+- `tests/unit/test_orchestrator.py`

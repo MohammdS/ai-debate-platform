@@ -6,7 +6,7 @@ from src.shared.config import ConfigManager
 
 _cfg = ConfigManager()
 
-PROVIDERS = ["groq", "gemini", "openai", "zai", "mock"]
+PROVIDERS = _cfg.available_providers
 
 
 def _ask(prompt: str, default: str = "") -> str:
@@ -20,7 +20,8 @@ def _ask(prompt: str, default: str = "") -> str:
     return value if value else default
 
 
-def choose_provider(label: str, default: str = "zai") -> str:
+def choose_provider(label: str, default: str | None = None) -> str:
+    default = default or _cfg.default_provider_a
     default_idx = PROVIDERS.index(default) + 1 if default in PROVIDERS else 1
     print(f"\nSelect provider for {label}:")
     for i, p in enumerate(PROVIDERS, 1):
@@ -44,8 +45,8 @@ def interactive_menu() -> dict:
         print("Topic cannot be empty. Aborted.")
         sys.exit(1)
 
-    stance_a = _ask("\nStance for Debater A", "Yes, strongly agree")
-    stance_b = _ask("Stance for Debater B", "No, strongly disagree")
+    stance_a = _ask("\nStance for Debater A", _cfg.menu_stance_a)
+    stance_b = _ask("Stance for Debater B", _cfg.menu_stance_b)
 
     provider_a = choose_provider("Debater A", default=_cfg.default_provider_a)
     provider_b = choose_provider("Debater B", default=_cfg.default_provider_b)

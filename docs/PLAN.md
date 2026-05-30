@@ -1,86 +1,80 @@
-# Architecture & Implementation Plan — AI Debate Platform
+# Architecture And Implementation Plan - AI Debate Platform
 
 ## 1. System Architecture
 
-```
-┌─────────────────────────────────────────────┐
-│  Entry Points                               │
-│  CLI: src/main.py   GUI: src/gui/server.py  │
-└────────────────┬────────────────────────────┘
-                 │
-        DebateOrchestrator
-          ├── _wire_channels()     — creates 5 IpcChannel objects
-          ├── _seed_first_turn()   — bootstrap RELAY to debater_a
-          └── asyncio.gather(
-                  Debater_A.run(),   ← IPC process coroutine
-                  Debater_B.run(),   ← IPC process coroutine
-                  Judge.run()        ← IPC mediator + event emitter
-              )
+```text
+CLI / GUI
+   |
+   v
+LLMService -> AIClientFactory -> Provider Client
+   |
+   v
+ApiGatekeeper
+   |
+   v
+Debater A ----\
+               -> typed IPC channels -> Judge -> verdict channel -> Orchestrator
+Debater B ----/
+   |
+   v
+SkillSelector -> configured skill pool
 ```
 
 ## 2. Layer Map
 
 | Layer | Path | Responsibility |
 |---|---|---|
-| GUI frontend | `gui/` | `index.html`, `styles.css`, `app.js` — runs in browser |
-| GUI backend | `src/gui/` | HTTP server (port 8000), debate runner, streaming |
-| IPC | `src/ipc/` | Message envelope, typed queue channels |
-| SDK | `src/sdk/` | Abstract `BaseAIClient`, provider implementations, factory |
-| Services | `src/services/` | Debater, Judge, Orchestrator |
-| Shared | `src/shared/` | Config, Gatekeeper, Logger |
-| Models | `src/models/` | Pydantic data models |
+| GUI frontend | `gui/` | Browser form, live transcript, verdict display |
+| GUI backend | `src/gui/` | HTTP server, payload validation, NDJSON streaming |
+| CLI | `src/cli/`, `src/main.py` | Argument parser and interactive terminal flow |
+| IPC | `src/ipc/` | Message envelope, protocol enum, typed queue channels |
+| SDK | `src/sdk/` | Provider clients, factory, role-based service routing |
+| Services | `src/services/` | Debater, Judge, Orchestrator, Watchdog, exporter, memory |
+| Shared | `src/shared/` | Config, logging, constants, gatekeeper, version |
+| Skills | `src/skills/` | Debate skill implementations and selector |
+| Tools | `src/tools/` | Web search and search quality helpers |
 
-## 3. GUI Architecture
+## 3. Debate Flow
 
+1. The user submits topic, stances, providers, and rounds from CLI or GUI.
+2. `LLMService` builds provider clients and gatekeepers for each role.
+3. `DebateOrchestrator` wires five typed IPC channels.
+4. The orchestrator seeds the first `RELAY` to Debater A.
+5. Debaters generate arguments, select skills, and send `ARGUMENT` messages to the judge.
+6. The judge records each turn and relays it to the opposing debater.
+7. After the configured rounds, the judge evaluates the transcript and sends `VERDICT`.
+8. Results are exported to Markdown, JSON, and skill-log files.
+
+## 4. GUI Streaming Flow
+
+```text
+Browser form
+   |
+   | POST /api/debates/stream
+   v
+ThreadingHTTPServer
+   |
+   v
+stream_debate_from_payload()
+   |
+   v
+Judge event queue -> NDJSON events -> browser transcript
 ```
-Browser (gui/app.js)
-    │  POST /api/debates/stream   (NDJSON streaming)
-    ▼
-src/gui/server.py  (ThreadingHTTPServer :8000)
-    │  asyncio.run(_write_stream)
-    ▼
-src/gui/debate_runner.py  stream_debate_from_payload()
-    ├── creates asyncio.Queue  event_queue
-    ├── wires event_queue → judge.event_queue
-    ├── asyncio.create_task(orchestrator.run_debate())  ← full IPC debate
-    └── yields events as judge emits them:
-            {"type": "start"}
-            {"type": "message", "message": {...}, "count": N}  ← per argument
-            {"type": "judging"}
-            {"type": "verdict", "history": [...], "verdict": "..."}
-```
 
-**Live event flow:** Judge emits to `event_queue` after relaying each message. Streaming generator reads the queue and yields JSON lines to the browser in real time.
-
-## 3. IPC Channel Topology
-
-```
-Debater_A ──[a_to_judge]──► Judge ──[judge_to_b]──► Debater_B
-Debater_A ◄─[judge_to_a]── Judge ◄─[b_to_judge]── Debater_B
-                                └──[verdict_ch]──► Orchestrator
-```
-
-## 4. Message Flow (one round)
-1. Orchestrator seeds synthetic `RELAY` → `judge_to_a` → Debater A inbox
-2. Debater A generates argument → sends `ARGUMENT` → `a_to_judge` → Judge inbox_a
-3. Judge logs, prints, relays → `judge_to_b` → Debater B inbox
-4. Debater B generates counter → sends `ARGUMENT` → `b_to_judge` → Judge inbox_b
-5. Judge logs, prints, relays → `judge_to_a` → Debater A inbox
-6. Repeat for N rounds
-7. Judge calls `evaluate()`, sends `VERDICT` → `verdict_ch` → Orchestrator
-8. Judge sends `SHUTDOWN` to both debaters
+Events include `start`, `message`, `judging`, `verdict`, and `error`.
 
 ## 5. Key Design Decisions
-- **JSON on wire:** Messages serialized to JSON strings on the queue, not Python objects — makes IPC boundary explicit.
-- **Separate judge inboxes:** `inbox_a` and `inbox_b` enforce turn order.
-- **Bootstrap seed:** Orchestrator sends one synthetic RELAY to debater_a before `gather` to avoid deadlock.
-- **Backward-compatible APIs:** `get_argument()` and `evaluate()` preserved for direct SDK use and tests.
 
-## 6. Technology Stack
-- `asyncio.Queue` — IPC transport
-- `httpx` — async HTTP for LLM API calls
-- `pydantic` — data models
-- `python-dotenv` — env var loading
-- `uv` — dependency management
-- `ruff` — linting
-- `pytest` / `pytest-asyncio` / `pytest-cov` — testing
+- Use JSON strings on queues so the IPC boundary is explicit.
+- Keep debaters independent; they never call each other directly.
+- Keep provider differences inside SDK clients.
+- Keep external-call reliability inside `ApiGatekeeper`.
+- Use `MockAIClient` for deterministic tests and demos.
+- Split shared helpers into small modules so source files remain under the assignment line cap.
+
+## 6. Verification
+
+- `uv run ruff check src tests`
+- `uv run pytest -q`
+- `uv run pytest --cov=src --cov-report=term-missing`
+- `uv run pytest tests/unit/test_submission_readiness.py -q`

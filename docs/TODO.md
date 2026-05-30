@@ -1,53 +1,71 @@
-# TODO — AI Debate Platform
+# TODO - AI Debate Platform
 
-## Status
-- [x] Done
-- [/] In Progress
-- [ ] Pending
+This tracker reflects the completed submission scope for the current branch.
 
----
+## Foundation
 
-## Core Infrastructure
-- [x] Project structure + `uv` + `pyproject.toml`
-- [x] `config/setup.json` — all parameters configurable
-- [x] `.env-example`, `.gitignore` (API keys excluded)
-- [x] `src/shared/config.py` — ConfigManager
-- [x] `src/shared/gatekeeper.py` — rate limiting + retry
-- [x] `src/shared/logger.py` — console + file logging
+- [x] Project scaffold created with `uv`, `pyproject.toml`, and tracked `uv.lock`
+- [x] Runtime configuration centralized under `config/`
+- [x] Canonical `.env.example` provided; `.env` ignored
+- [x] Unsupported Anthropic template/config entries removed
+- [x] Structured logging and rotating file logs implemented
+- [x] Source tree organized into `sdk`, `services`, `skills`, `shared`, `ipc`, `gui`, `cli`, and `tools`
 
-## SDK Layer
-- [x] `src/sdk/base_client.py` — abstract BaseAIClient
-- [x] `src/sdk/openai_client.py`
-- [x] `src/sdk/gemini_client.py`
-- [x] `src/sdk/groq_client.py`
-- [x] `src/sdk/mock_client.py`
-- [x] `src/sdk/factory.py` — AIClientFactory
+## Provider SDK
 
-## IPC Layer
-- [x] `src/ipc/message.py` — DebateMessage + MessageType enum
-- [x] `src/ipc/channel.py` — IpcChannel (asyncio.Queue + timeout)
-- [x] `src/ipc/__init__.py`
+- [x] `BaseAIClient` abstraction implemented
+- [x] OpenAI, Gemini, Groq, ZAI, OpenRouter, and Mock clients implemented
+- [x] Central provider factory implemented in `src/sdk/factory.py`
+- [x] Role-based provider routing implemented in `src/sdk/llm_service.py`
 
-## Service Layer
-- [x] `src/services/debater.py` — Debater with run() IPC loop + get_argument() SDK
-- [x] `src/services/judge.py` — Judge with run() mediator loop + evaluate() SDK
-- [x] `src/services/orchestrator.py` — wire channels + asyncio.gather
-- [x] `src/services/exporter.py` — Markdown + JSON export
+## Rate Limiting And Reliability
+
+- [x] `ApiGatekeeper` implemented with per-provider throttling, timeouts, retries, usage tracking, and cost estimates
+- [x] Provider limits loaded from `config/rate_limits.json`
+- [x] Watchdog agent implemented with timeout, heartbeat, cancellation, and restart handling
+- [x] Safe error redaction added for GUI/API responses
+
+## Debate Engine
+
+- [x] IPC message model, channel abstraction, protocol validation, and heartbeat support implemented
+- [x] Debater, Judge, and Orchestrator implemented
+- [x] Debate memory tracks prior claims and URLs
+- [x] Context compression and judge transcript truncation implemented
+- [x] Web evidence enrichment split from `debater.py` to keep the debater under the source line cap
+
+## Skills And Prompting
+
+- [x] Skill base types, registry, selector, and result models implemented
+- [x] Rebuttal, Evidence, Citation, Progression, Socratic, Repetition Guard, Summarization, Tone Moderation, Judge Evaluation, Fact Safety, and Source Challenge Limiter implemented
+- [x] Debater prompt cleanup and rewrite passes implemented
+
+## Interfaces And Output
+
+- [x] CLI entry point and interactive menu implemented
+- [x] GUI HTTP server and NDJSON streaming endpoint implemented
+- [x] GUI provider dropdowns include all supported providers, including OpenRouter for the judge
+- [x] GUI rounds input is clamped and falls back safely on invalid payload values
+- [x] Static-file path hardening added for the GUI
+- [x] Markdown, JSON, and skill-log export implemented
 
 ## Testing
-- [x] `tests/unit/test_ipc_message.py`
-- [x] `tests/unit/test_ipc_channel.py`
-- [x] `tests/unit/test_debater.py`
-- [x] `tests/unit/test_judge.py`
-- [x] `tests/unit/test_orchestrator.py`
-- [x] `tests/unit/test_config.py`
-- [x] `tests/unit/test_gatekeeper.py`
-- [x] `tests/unit/test_logger.py`
-- [x] Coverage ≥ 85% (current: 92.86%)
 
-## Pending
-- [ ] `src/shared/watchdog.py` — timeout + restart for autonomous runs
-- [ ] `src/shared/logger.py` — FIFO rotating handler (20 files × 500 lines)
-- [ ] `src/tools/web_search.py` — DuckDuckGo search tool for debaters
-- [ ] `src/main.py` — interactive terminal menu
-- [ ] `README.md` — screenshots, prompts, full session log
+- [x] Unit tests cover SDK clients, routing, gatekeeper behavior, IPC, debater, judge, orchestrator, skills, search, config, exporter, logging, GUI runner, and server safety
+- [x] Integration debate-flow test uses `MockAIClient`
+- [x] Submission-readiness tests verify the source line cap, env template, and GUI provider options
+- [x] Full suite passing: `416` tests
+- [x] Coverage target exceeded: `91.74%`
+- [x] Ruff lint checks passing
+
+## Documentation
+
+- [x] README updated for AI grading with evidence and verification commands
+- [x] PRD, PLAN, IPC, Gatekeeper, Watchdog, Testing, Limitations, and Requirements Traceability docs included
+- [x] Latest debate transcript and skill usage log tracked under `docs/`
+
+## Submission Readiness
+
+- [x] Production Python files in `src/` verified under 150 physical lines
+- [x] Hardcoded runtime values moved into config files
+- [x] Duplicate `.env-example` removed in favor of `.env.example`
+- [x] Ignored generated artifacts are excluded from the polished repository

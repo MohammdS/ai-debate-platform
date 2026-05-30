@@ -1,39 +1,50 @@
-# PRD — Watchdog
+# PRD - Watchdog
 
 ## Problem
-Autonomous agent runs can hang indefinitely if an LLM API stalls, a queue blocks, or a network timeout isn't surfaced correctly. A single stuck coroutine freezes the entire debate.
+
+Autonomous debate runs can hang if a provider call stalls, an IPC queue blocks, or a coroutine does not surface a failure. A stuck task should not freeze the full debate indefinitely.
 
 ## Requirement
-The lecture engineering requirements state: *"Watchdog with keep-alive — mandatory in every autonomous agents project. If a process falls, kill it and restart it."*
 
-## Solution (`src/shared/watchdog.py`) — Pending Implementation
+The system needs a watchdog that:
 
-### Interface
+- Runs monitored debate work with a timeout.
+- Tracks heartbeat freshness.
+- Cancels stale work.
+- Restarts failed work with fresh services.
+- Stops after a configured failure budget.
+
+## Solution
+
+`src/services/watchdog_agent.py` implements `WatchdogAgent`.
+
 ```python
-watchdog = Watchdog(timeout=600.0, max_retries=3, logger=logger)
-verdict = await watchdog.run(orchestrator.run_debate)
+watchdog = WatchdogAgent(max_failures=3, poll_interval=5.0)
+watchdog.register("debate", fresh_debate_factory, timeout=600.0)
+await watchdog.start()
 ```
 
-### Behaviour
-- Wraps the entire `run_debate()` coroutine in `asyncio.wait_for(..., timeout)`.
-- On `TimeoutError`: logs error, resets orchestrator state, retries up to `max_retries`.
-- On unrecoverable failure (max retries exceeded): re-raises for the caller to handle.
-- On success: returns the verdict string.
+## Behavior
 
-### Retry Reset
-Each retry must reset `judge.transcript` and `orchestrator.history` to `[]`, and re-wire IPC channels (channels are single-use once a coroutine exits).
+- Wraps each registered coroutine in `asyncio.wait_for`.
+- Records heartbeat timestamps through `beat(name)`.
+- Cancels stale tasks and retries using the registered fresh factory.
+- Rebuilds debaters, judge, orchestrator, channels, transcript, memory, and skill logs on retry.
 
-## Configuration (`config/setup.json`)
+## Configuration
+
 ```json
 "watchdog": {
   "timeout_seconds": 600.0,
-  "max_retries": 3
+  "max_failures": 3,
+  "poll_interval_seconds": 5.0
 }
 ```
 
 ## Files
-- `src/shared/watchdog.py` — **not yet implemented**
-- `tests/unit/test_watchdog.py` — **not yet implemented**
 
-## Status
-**Pending.** Tracked in `docs/TODO.md`.
+- `src/services/watchdog_agent.py`
+- `src/services/watchdog_helpers.py`
+- `src/cli/runner.py`
+- `src/gui/debate_runner.py`
+- `tests/unit/test_watchdog_agent.py`

@@ -1,6 +1,10 @@
 import pytest
 
-from src.gui.debate_runner import build_debate_services, run_debate_from_payload, stream_debate_from_payload
+from src.gui.debate_runner import (
+    build_debate_services,
+    run_debate_from_payload,
+    stream_debate_from_payload,
+)
 
 
 @pytest.mark.asyncio
@@ -69,3 +73,43 @@ async def test_payload_can_select_judge_provider(tmp_path, monkeypatch):
 
     assert model_info["judge"]["provider"] == "gemini"
     assert "Gemini" in model_info["judge"]["display"]
+
+
+def test_build_debate_services_uses_config_defaults():
+    topic, _, _, _, rounds, model_info = build_debate_services({})
+
+    assert topic == "Is AI a threat?"
+    assert rounds == 10
+    assert model_info["debater_a"]["provider"] == "zai"
+    assert model_info["debater_b"]["provider"] == "groq"
+    assert model_info["judge"]["provider"] == "groq"
+
+
+def test_build_debate_services_falls_back_for_invalid_rounds():
+    topic, _, _, _, rounds, model_info = build_debate_services({
+        "topic": "Invalid rounds",
+        "stance_a": "A",
+        "stance_b": "B",
+        "provider_a": "mock",
+        "provider_b": "mock",
+        "judge_provider": "mock",
+        "rounds": "not-a-number",
+    })
+
+    assert topic == "Invalid rounds"
+    assert rounds == 10
+    assert model_info["judge"]["provider"] == "mock"
+
+
+def test_build_debate_services_clamps_rounds():
+    *_, rounds, _ = build_debate_services({
+        "topic": "Clamp rounds",
+        "stance_a": "A",
+        "stance_b": "B",
+        "provider_a": "mock",
+        "provider_b": "mock",
+        "judge_provider": "mock",
+        "rounds": "999",
+    })
+
+    assert rounds == 10

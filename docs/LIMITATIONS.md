@@ -1,112 +1,66 @@
 # Known Limitations
 
-This document provides an honest assessment of the current platform's constraints. Understanding these limitations helps set appropriate expectations and informs future improvement work.
+This document records practical constraints in the current version. They are not hidden defects; they are boundaries for a university submission and future production work.
 
----
-
-## 1. LLM Response Quality
+## LLM Response Quality
 
 ### Hallucinated Citations
 
-Mock and free-tier models (Groq Llama 3.1 8B, ZAI GLM-4.7-Flash) frequently invent paper titles, statistics, and author names. The `FactSafetyFilter` (`src/skills/fact_safety_filter.py`) applies heuristic cleaning — flagging suspiciously round percentages, missing publication years, or implausible author combinations — but it cannot detect all hallucinations. Users should treat all cited statistics from mock/free-tier debates as illustrative rather than factual.
+Free-tier and smaller models can invent paper titles, statistics, author names, or exact percentages. `FactSafetyFilter` reduces risky claims with heuristics, but it cannot verify every factual statement. Treat mock/free-tier citations as illustrative unless independently checked.
 
 ### Repetition Despite Guards
 
-`RepetitionGuardSkill` injects explicit anti-repetition instructions into each debater prompt after detecting fingerprint overlap with previous turns. However, it cannot _force_ the underlying LLM to comply. Some models — particularly smaller ones — repeat arguments with superficial rewording that defeats the fingerprinting algorithm. The `repetition_penalty` in the judge scoring compensates for this at evaluation time.
+`RepetitionGuardSkill` injects anti-repetition guidance and `DebateMemory` tracks prior claims, but the final wording still depends on the selected model. The judge scoring includes repetition penalties to reduce the advantage of repeated claims.
 
 ### Word Limit Compliance
 
-Debaters are instructed to stay under 120 words per turn (`debate.debater_max_words` in `config/setup.json`). The `enforce_word_limit` function in `src/services/response_cleanup.py` hard-truncates responses that exceed this limit. Truncation can cut arguments mid-sentence, producing awkward endings. Increasing the word limit improves argument quality at the cost of higher token usage and API costs.
+Debaters are instructed to stay under `debate.debater_max_words` from `config/setup.json`. `enforce_word_limit` truncates overlong output, which can occasionally cut an argument awkwardly.
 
----
+## Provider Constraints
 
-## 2. Provider Constraints
+### Free-Tier Rate Limits
 
-### Rate Limits on Free Tiers
-
-Free-tier Groq and ZAI accounts have strict RPM (requests-per-minute) limits. A full 10-round debate generates approximately 30 API calls (20 debater turns + 10 judge relays + 1 final evaluation). With Groq's free tier capped at 20 RPM, the `ApiGatekeeper`'s backpressure queue will introduce deliberate delays between calls. Expect a full debate to take 3–5 minutes on free-tier providers.
+A full 10-round debate can generate roughly 30 LLM calls. Free tiers such as Groq may require deliberate backpressure. `ApiGatekeeper` spaces calls instead of letting the debate crash on provider limits.
 
 ### Model Availability
 
-Provider model names change frequently. If a configured model is deprecated or renamed, all calls to that provider will fail with a `ModelNotFoundError`. To fix: update `config/models.json` and the corresponding entry in `config/setup.json` with the current model ID from your provider's documentation.
+Provider model IDs can change. If a provider deprecates a model, update `config/setup.json` and `config/models.json`.
 
-### No Streaming Support
+### No Token-Level Streaming
 
-The platform uses single-shot completions (`complete()` method). Streaming mode — where partial tokens are displayed as they arrive — is not implemented. All text appears at once after the full response is generated. Adding streaming would require changes to `BaseAIClient`, all provider clients, the IPC channel types, and the GUI SSE handler.
+Provider clients use single-shot completions. The GUI streams completed debate events over NDJSON, but it does not stream partial model tokens.
 
----
+## Web Search
 
-## 3. Web Search
+### DuckDuckGo Availability
 
-### DuckDuckGo Rate Limits
-
-The `web_search` tool (`src/tools/web_search.py`) uses the `ddgs` library, which queries DuckDuckGo's unofficial API. This API can return empty result sets or temporarily block requests under heavy use without any warning. The tool returns an empty list gracefully in this case, and `EvidenceSkill` falls back to LLM-only argument generation.
+`WebSearchTool` uses the `ddgs` package. DuckDuckGo may return empty results or throttle requests. The tool fails gracefully and the debater falls back to LLM-only reasoning.
 
 ### Citation Quality
 
-Evidence retrieved via web search is summarised as plain text, not formally cited with DOI, volume, page numbers, or publisher. This limits the academic rigour of citations produced by `CitationSkill`. For production use, replacing `ddgs` with a proper academic search API (Semantic Scholar, CrossRef, or arXiv) would significantly improve citation quality.
+Search snippets are not formal academic citations. A production academic version should use Semantic Scholar, CrossRef, arXiv, or another structured source API.
 
-### Search Disabled for Mock Provider
+### Mock Provider
 
-Web search is intentionally disabled when using `MockAIClient` to keep tests fast, deterministic, and network-free. When `MockAIClient` is the active client, `web_search` returns a fixed empty list regardless of the query.
+Web search is disabled for `MockAIClient` so tests remain deterministic and network-free.
 
----
+## Judge Scoring
 
-## 4. Judge Scoring
+Judge scores depend on the judge model. Smaller models can be less nuanced than larger paid models. The rubric improves consistency, but it does not remove model bias.
 
-### Subjectivity
+Long transcripts may be compressed or truncated before final evaluation to stay within context limits.
 
-Even with structured scoring criteria and a detailed rubric, judge scores reflect the biases and capability level of the judge model. Smaller models (Llama 3.1 8B via Groq) produce less nuanced verdicts than larger models (GPT-4, Gemini 2.5 Flash). Using a higher-capability model as judge produces more defensible verdicts, though at higher API cost.
+## GUI
 
-### Transcript Length Truncation
+The GUI server is intentionally lightweight: `http.server`, process-local concurrency control, and NDJSON streaming. It is suitable for a local demo, not for multi-user production deployment.
 
-Very long debates or debates with verbose arguments may exceed the judge model's context window. `ContextCompressor` (`src/services/context_compressor.py`) truncates the transcript to `debate.judge_max_transcript_entries` entries (default: 20) before passing it to the judge. This means the judge may not evaluate early-round arguments in a long debate, potentially favouring the debater who made their best points later.
+Results are written to files under `results/` during runtime, but there is no persistent database or account/session system.
 
----
+## Future Improvements
 
-## 5. GUI
-
-### Single Session Only
-
-The GUI server (`src/gui/server.py` — FastAPI + Server-Sent Events) supports one active debate session at a time. A second browser tab or client connecting while a debate is running will see the same SSE stream. Running two simultaneous debates is not supported and would cause shared-state corruption.
-
-### No Persistence Between Restarts
-
-Debate history, previous transcripts, and configuration changes made through the GUI are held in memory and lost when the server process exits. Results are written to the `results/` directory by `DebateExporter`, which provides file-level persistence, but there is no database or session store.
-
----
-
-## 6. Performance
-
-### Sequential Debate Execution
-
-Despite using `asyncio` for concurrency _within_ a single debate (agents communicate via `asyncio.Queue` and run as concurrent coroutines), the orchestrator runs one complete debate at a time. There is no batch mode for running multiple debates in parallel.
-
-### Token Costs for Premium Providers
-
-A full 10-round debate with GPT-4 (OpenAI) costs approximately $0.50–$2.00 USD depending on argument verbosity and the judge's evaluation length. Use `config/pricing.json` estimates to understand costs before running debates with paid providers.
-
----
-
-## 7. Testing
-
-### Async Test Isolation
-
-Some async tests rely on `pytest-asyncio`'s auto-generated event loop. In rare cases, if tests are collected in an unexpected order or a previous test does not clean up a queue, residual messages can leak between tests. If you observe flaky failures in IPC-related tests, run them in isolation with `uv run pytest tests/unit/test_ipc_channel.py -v` to confirm isolation.
-
-### Integration Tests Do Not Cover Real API Behaviour
-
-All integration tests (`tests/integration/`) use `MockAIClient`. Real provider behaviours — token limits, content-filtering rejections, model drift between versions, and network timeouts — are not automatically tested. Before deploying with a new provider or model, run a manual end-to-end debate to confirm compatibility.
-
----
-
-## 8. Future Improvements
-
-The following limitations are known and planned for future sprints:
-
-- Streaming output support across all providers
-- Multi-session GUI with persistent session storage
-- Formal academic citation via Semantic Scholar API
-- Parallel debate execution for batch topic comparison
-- Judge confidence score and uncertainty quantification
-- Adversarial prompt injection detection in debater arguments
+- Token-level streaming across providers
+- Persistent multi-session GUI
+- Academic citation API integration
+- Batch debate runs for parameter experiments
+- Judge confidence score
+- Stronger prompt-injection defenses for retrieved evidence

@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import re
+
 from src.skills.base_skill import BaseSkill
 from src.skills.models import SkillContext, SkillResult
 
@@ -8,14 +12,38 @@ _DEFAULT_TEMPLATE = (
     "each claim. Avoid invented statistics."
 )
 
+_STAT_SIGNAL = re.compile(
+    r"\d+(?:\.\d+)?\s*%|"
+    r"\b\d+\s+(?:billion|million|trillion)\b|"
+    r"\b(?:study|research|data|statistics|figures|numbers|survey|report)\b",
+    re.I,
+)
+_ANECDOTE_SIGNAL = re.compile(
+    r"\b(?:personally|in my experience|I have seen|people I know|a friend|anecdotally)\b",
+    re.I,
+)
+
 
 class EvidenceSkill(BaseSkill):
     name = "evidence"
     description = "Suggests evidence-based framing for the argument"
 
-    def can_handle(self, context: SkillContext) -> bool:
+    def score(self, context: SkillContext) -> float:
         cfg = self._get_config()
-        return context.skill_type == cfg.get("skill_type_trigger", _DEFAULT_TRIGGER)
+        trigger = cfg.get("skill_type_trigger", _DEFAULT_TRIGGER)
+        if context.skill_type == trigger:
+            s = 0.75
+        else:
+            s = 0.20
+            if _STAT_SIGNAL.search(context.opponent_last_message):
+                s += 0.30  # opponent cited stats; counter with evidence even cross-type
+        own_last = next(
+            (e["content"] for e in reversed(context.transcript) if e.get("role") == "assistant"),
+            "",
+        )
+        if _ANECDOTE_SIGNAL.search(own_last):
+            s += 0.15
+        return min(1.0, max(0.0, s))
 
     def run(self, context: SkillContext) -> SkillResult:
         cfg = self._get_config()

@@ -49,32 +49,38 @@ def test_safe_error_leaves_normal_messages_intact():
 
 def test_debate_semaphore_blocks_concurrent_request():
     """
-    _debate_semaphore must reject a second debate request immediately
-    (acquire(blocking=False) returns False when the semaphore is held).
+    _debate_semaphore must reject a request when all slots are held.
+    With _MAX_CONCURRENT slots, acquiring _MAX_CONCURRENT times exhausts
+    the semaphore; the next acquire must return False.
     """
     from src.gui import server as srv
 
-    # Reset to known state — ensure semaphore is released
-    while srv._debate_semaphore._value < 1:  # type: ignore[attr-defined]
+    limit = srv._MAX_CONCURRENT
+
+    # Reset to known state — drain any partial holds
+    while srv._debate_semaphore._value < limit:  # type: ignore[attr-defined]
         srv._debate_semaphore.release()
 
-    # Simulate first request holding the semaphore
-    acquired = srv._debate_semaphore.acquire(blocking=False)
-    assert acquired, "First request should acquire the semaphore"
+    # Exhaust all available slots
+    for _ in range(limit):
+        ok = srv._debate_semaphore.acquire(blocking=False)
+        assert ok, "Should be able to acquire up to _MAX_CONCURRENT times"
 
     try:
-        # Second request should fail immediately
-        second = srv._debate_semaphore.acquire(blocking=False)
-        assert not second, "Second concurrent request should be rejected"
+        # All slots used — next request must be rejected
+        over_limit = srv._debate_semaphore.acquire(blocking=False)
+        assert not over_limit, "Request beyond _MAX_CONCURRENT should be rejected"
     finally:
-        srv._debate_semaphore.release()
+        for _ in range(limit):
+            srv._debate_semaphore.release()
 
 
 def test_debate_semaphore_releases_after_use():
-    """After the first debate finishes, a new request can acquire the semaphore."""
+    """After a debate finishes, a new request can acquire the semaphore."""
     from src.gui import server as srv
 
-    while srv._debate_semaphore._value < 1:  # type: ignore[attr-defined]
+    limit = srv._MAX_CONCURRENT
+    while srv._debate_semaphore._value < limit:  # type: ignore[attr-defined]
         srv._debate_semaphore.release()
 
     # First debate: acquire and release
@@ -85,3 +91,50 @@ def test_debate_semaphore_releases_after_use():
     acquired = srv._debate_semaphore.acquire(blocking=False)
     assert acquired, "Semaphore should be free after previous debate completed"
     srv._debate_semaphore.release()
+
+
+# ---------------------------------------------------------------------------
+# Path traversal prevention
+# ---------------------------------------------------------------------------
+
+def test_static_traversal_path_escapes_gui_dir():
+    """Sanity: a traversal route resolves outside GUI_DIR."""
+    from src.gui.server_paths import GUI_DIR
+    evil_route = "../../etc/passwd"
+    candidate = (GUI_DIR / evil_route).resolve()
+    assert not candidate.is_relative_to(GUI_DIR.resolve())
+
+
+def test_result_file_rejects_traversal_session_id():
+    """_result_file raises ValueError for a session_id containing path traversal."""
+    import pytest
+
+    from src.gui.server import _result_file
+    with pytest.raises(ValueError):
+        _result_file("../../etc/passwd")
+
+
+def test_result_file_rejects_non_hex_session_id():
+    """_result_file raises ValueError for a session_id that is not hex."""
+    import pytest
+
+    from src.gui.server import _result_file
+    with pytest.raises(ValueError):
+        _result_file("not-a-valid-id!")
+
+
+def test_result_file_rejects_null_byte_session_id():
+    """_result_file raises ValueError for a session_id containing a null byte."""
+    import pytest
+
+    from src.gui.server import _result_file
+    with pytest.raises(ValueError):
+        _result_file("a1b2c3d4\x00")
+
+
+def test_result_file_accepts_valid_session_id():
+    """_result_file accepts a valid 8-char hex session ID without raising."""
+    from src.gui.server import _result_file
+    path = _result_file("a1b2c3d4")
+    assert path.name == "debate.json"
+    assert "a1b2c3d4" in str(path)

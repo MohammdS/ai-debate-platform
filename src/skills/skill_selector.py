@@ -3,20 +3,8 @@ import logging
 from src.skills.base_skill import BaseSkill
 from src.skills.models import SkillContext, SkillResult
 
-# Higher number = lower priority (will be dropped first when over cap).
-# Argument-driving skills (rebuttal, progression, evidence/socratic) are
-# kept; support skills (citation, tone_moderation) are deprioritised so
-# they never crowd out substantive guidance.
-_PRIORITY: dict[str, int] = {
-    "rebuttal":          1,
-    "progression":       2,
-    "evidence":          3,
-    "socratic":          3,
-    "repetition_guard":  4,
-    "summarization":     5,
-    "citation":          6,
-    "tone_moderation":   7,
-}
+# Skills in this set always run and do not count against the competitive cap.
+_ALWAYS_RUN: set[str] = {"tone_moderation", "repetition_guard"}
 _DEFAULT_MAX_SKILLS = 3
 
 
@@ -29,29 +17,40 @@ class SkillSelector:
         self._logger = logging.getLogger(f"skill_selector.{debater_name}")
 
     def select(self, context: SkillContext) -> list[SkillResult]:
-        """Run all applicable skills; return at most max_skills selected results.
+        """Run all applicable skills; return results with at most max_skills competitive
+        selections plus any always-run skills (e.g. tone_moderation).
 
-        Skills are ranked by _PRIORITY so argument-driving skills are always
-        kept and support skills (citation, tone) are dropped first when the cap
-        is reached.  Skills that return selected=False are preserved in the
-        result list but do not count against the cap.
+        Skills are ranked by their dynamic score so the most contextually relevant
+        guidance is kept.  Always-run skills bypass the cap entirely.
         """
         raw: list[SkillResult] = []
+        candidates: list[tuple[float, SkillResult]] = []
+
         for skill in self._skills:
-            if skill.can_handle(context):
+            if skill.name in _ALWAYS_RUN:
                 result = skill.run(context)
                 raw.append(result)
-                level = logging.INFO if result.selected else logging.DEBUG
-                self._logger.log(level, "[skill_selector] '%s': %s", skill.name, result.reason)
+                self._logger.info("[skill_selector] '%s' (always-run): %s", skill.name, result.reason)
             else:
-                raw.append(SkillResult(skill_name=skill.name, selected=False,
-                                       reason="not applicable", content=""))
+                s = skill.score(context)
+                if s > 0.0:
+                    result = skill.run(context)
+                    raw.append(result)
+                    candidates.append((s, result))
+                    self._logger.info(
+                        "[skill_selector] '%s' score=%.2f: %s", skill.name, s, result.reason
+                    )
+                else:
+                    raw.append(SkillResult(skill_name=skill.name, selected=False,
+                                           reason="score=0.0", content=""))
+                    self._logger.debug("[skill_selector] '%s' skipped (score=0.0)", skill.name)
 
-        # Apply cap: sort selected results by priority, deselect the excess.
-        selected = [r for r in raw if r.selected]
-        selected.sort(key=lambda r: _PRIORITY.get(r.skill_name, 99))
-        for r in selected[self._max_skills:]:
+        # Keep top-scoring competitive skills; deselect the rest.
+        candidates.sort(key=lambda pair: pair[0], reverse=True)
+        for _, r in candidates[self._max_skills:]:
             r.selected = False
-            self._logger.debug("[skill_selector] '%s' deselected (cap=%d)", r.skill_name, self._max_skills)
+            self._logger.debug(
+                "[skill_selector] '%s' deselected (cap=%d)", r.skill_name, self._max_skills
+            )
 
         return raw

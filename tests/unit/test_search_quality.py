@@ -1,6 +1,6 @@
 """Tests for search_quality — domain scoring and query building."""
 
-from src.tools.search_quality import build_queries, is_blocked, score_domain
+from src.tools.search_quality import build_queries, is_allowed_for_topic, is_blocked, score_domain
 
 
 class TestDomainScoring:
@@ -35,6 +35,15 @@ class TestDomainScoring:
         assert is_blocked("https://www.reddit.com/r/anything") is True
         assert is_blocked("https://www.bbc.com/news") is False
 
+    def test_adult_domain_pattern_blocked(self):
+        assert is_blocked("https://iporn88.net/video-foo") is True
+
+    def test_clickbait_whos_better_pattern_blocked(self):
+        assert is_blocked("https://example.com/whos-better-player-a-vs-b") is True
+
+    def test_low_signal_aggregator_pattern_blocked(self):
+        assert is_blocked("https://athreascans.com/whos-better-chapter-1") is True
+
 
 class TestQueryBuilding:
     def test_always_returns_at_least_one_query(self):
@@ -64,3 +73,23 @@ class TestQueryBuilding:
         combined = " ".join(queries).lower()
         assert "ai in schools" in combined
         assert "ai is beneficial" in combined
+
+
+class TestTopicAwareDomainGate:
+    def test_sports_topic_allows_trusted_domain(self):
+        assert is_allowed_for_topic(
+            "https://www.uefa.com/uefachampionsleague/",
+            "who is better barcelona or real madrid",
+        ) is True
+
+    def test_sports_topic_blocks_untrusted_domain(self):
+        assert is_allowed_for_topic(
+            "https://random-blog.example.com/barca-vs-real",
+            "barcelona vs real madrid",
+        ) is False
+
+    def test_non_sports_topic_keeps_default_behavior(self):
+        assert is_allowed_for_topic(
+            "https://www.randomsite123.com/article",
+            "ai in education",
+        ) is True

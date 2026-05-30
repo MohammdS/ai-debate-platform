@@ -6,8 +6,19 @@ All angles and the template are configurable in config/skills_prompts.json.
 """
 from __future__ import annotations
 
+import re
+
 from src.skills.base_skill import BaseSkill
 from src.skills.models import SkillContext, SkillResult
+
+_REPETITION_SIGNAL = re.compile(
+    r"\b(?:as I (?:said|mentioned|argued|noted)|once again|reiterating|to repeat|as previously)\b",
+    re.I,
+)
+_DEEP_DIVE_SIGNAL = re.compile(
+    r"\b(?:furthermore|in addition|building on|expanding on|another aspect|additionally)\b",
+    re.I,
+)
 
 _DEFAULT_ANGLES = [
     "economic and financial impact",
@@ -28,9 +39,23 @@ class ProgressionSkill(BaseSkill):
     name = "progression"
     description = "Pushes debaters to introduce a new argument angle each round"
 
-    def can_handle(self, context: SkillContext) -> bool:
-        """Activate from round 2 onwards; let round 1 be a free opening."""
-        return context.round_num >= 2
+    def score(self, context: SkillContext) -> float:
+        if context.round_num < 2:
+            return 0.0
+        own_last = next(
+            (e["content"] for e in reversed(context.transcript) if e.get("role") == "assistant"),
+            "",
+        )
+        s = 0.55
+        if _REPETITION_SIGNAL.search(own_last):
+            s += 0.25
+        if context.round_num >= 6:
+            s += 0.15
+        if context.round_num == 2:
+            s += 0.10
+        if _DEEP_DIVE_SIGNAL.search(own_last):
+            s -= 0.15
+        return min(1.0, max(0.0, s))
 
     def run(self, context: SkillContext) -> SkillResult:
         cfg = self._get_config()

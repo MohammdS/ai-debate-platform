@@ -9,7 +9,7 @@ class DebateExporter:
 
     def __init__(self, results_dir: str = "results"):
         self.results_dir = Path(results_dir)
-        self.results_dir.mkdir(exist_ok=True)
+        self.results_dir.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
     # Public helpers
@@ -34,7 +34,8 @@ class DebateExporter:
 
     def export_to_markdown(
         self, topic: str, history: list[dict[str, str]], verdict: str,
-        filename: str = "debate_transcript.md", model_info: dict | None = None
+        filename: str = "debate_transcript.md", model_info: dict | None = None,
+        token_stats: dict | None = None,
     ):
         """Saves the debate history as a Markdown file."""
         file_path = self.results_dir / filename
@@ -50,7 +51,17 @@ class DebateExporter:
                 f.write("\n")
             for msg in history:
                 name = msg.get("name", msg.get("role", "Unknown"))
-                f.write(f"### {name}\n{msg['content']}\n\n---\n\n")
+                f.write(f"### {name}\n{msg['content']}\n\n")
+                sources = msg.get("sources", [])
+                if sources:
+                    f.write("Sources used:\n")
+                    for src in sources:
+                        title = src.get("title", "").strip() or "Untitled"
+                        url = src.get("url", "").strip()
+                        if url:
+                            f.write(f"- {title}: {url}\n")
+                    f.write("\n")
+                f.write("---\n\n")
 
             f.write(f"## JUDGE VERDICT\n{verdict}\n")
 
@@ -60,9 +71,30 @@ class DebateExporter:
                 f.write("\n```\n")
         return file_path
 
+    def export_skill_log(
+        self, topic: str,
+        debater_a_log: list[dict], debater_a_label: str,
+        debater_b_log: list[dict], debater_b_label: str,
+        filename: str = "skill_log.md",
+    ) -> Path:
+        """Saves per-round skill selections for both debaters as a Markdown file."""
+        file_path = self.results_dir / filename
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(f"# Skill Usage Log: {topic}\n\n")
+            for label, log in ((debater_a_label, debater_a_log), (debater_b_label, debater_b_log)):
+                f.write(f"## {label}\n\n")
+                f.write("| Turn | Round | Skills Selected |\n")
+                f.write("|------|-------|-----------------|\n")
+                for entry in log:
+                    skills = ", ".join(entry["skills"]) if entry["skills"] else "*(none)*"
+                    f.write(f"| {entry['turn']:>4} | {entry['round']:>5} | {skills} |\n")
+                f.write("\n")
+        return file_path
+
     def export_to_json(
         self, topic: str, history: list[dict[str, str]], verdict: str,
-        filename: str = "debate.json", model_info: dict | None = None
+        filename: str = "debate.json", model_info: dict | None = None,
+        token_stats: dict | None = None,
     ):
         """Saves the debate as a JSON file."""
         data: dict = {

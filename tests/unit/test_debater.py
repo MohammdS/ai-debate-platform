@@ -151,7 +151,7 @@ async def test_debater_regenerates_once_for_banned_phrase():
     assert result.startswith("The cited claim fails")
     assert gatekeeper.execute.await_count == 2
     retry_messages = gatekeeper.execute.call_args_list[1].args[1]
-    assert "Rewrite the response without banned debate clichés" in retry_messages[-1]["content"]
+    assert "Rewrite the response without weak debate clichés" in retry_messages[-1]["content"]
 
 
 @pytest.mark.asyncio
@@ -170,7 +170,7 @@ async def test_debater_b_regenerates_once_for_echoing_previous_response():
     assert result.startswith("Madrid's advantage")
     assert gatekeeper.execute.await_count == 2
     retry_messages = gatekeeper.execute.call_args_list[1].args[1]
-    assert "Rewrite without echoing the previous response" in retry_messages[-1]["content"]
+    assert "Rewrite with completely new wording" in retry_messages[-1]["content"]
 
 
 @pytest.mark.asyncio
@@ -219,3 +219,69 @@ async def test_debate_memory_records_turns():
     # Memory should have recorded the turn
     assert hasattr(debater, '_memory')
     assert len(debater._memory.pro_claims) >= 0  # May be 0 if content too short
+
+
+# ── DebaterIpcMixin error paths ────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_debater_run_raises_without_channels():
+    """run() raises RuntimeError when inbox/outbox are not set."""
+    client = MockAIClient("test", "key")
+    gatekeeper = ApiGatekeeper(rpm_limit=1000)
+    debater = Debater("Pro", "AI is good", "AI debate", client, gatekeeper)
+    with pytest.raises(RuntimeError, match="channels must be set"):
+        await debater.run()
+
+
+@pytest.mark.asyncio
+async def test_debater_run_exits_on_inbox_timeout():
+    """run() exits cleanly when the inbox times out (no SHUTDOWN received)."""
+    from src.ipc.channel import IpcChannel
+    client = MockAIClient("test", "key")
+    gatekeeper = ApiGatekeeper(rpm_limit=1000)
+    debater = Debater("Pro", "AI is good", "AI debate", client, gatekeeper)
+    debater.inbox = IpcChannel("in", timeout=0.05)   # very short timeout
+    debater.outbox = IpcChannel("out", timeout=5.0)
+    # Should return without raising — timeout is handled gracefully
+    await debater.run()
+
+
+# ── Web-search enablement policy ──────────────────────────────────────────
+
+def test_supports_web_search_default_true():
+    """BaseAIClient.supports_web_search defaults to True."""
+    from src.sdk.base_client import BaseAIClient
+    assert BaseAIClient.supports_web_search is True
+
+
+def test_mock_client_supports_web_search_false():
+    """MockAIClient.supports_web_search is False."""
+    assert MockAIClient.supports_web_search is False
+
+
+@pytest.mark.asyncio
+async def test_web_search_skipped_when_flag_false():
+    """Web search is not attempted when client.supports_web_search is False."""
+    from unittest.mock import patch as _patch
+    client = MockAIClient("test", "key")
+    assert not client.supports_web_search
+    gatekeeper = ApiGatekeeper(rpm_limit=1000)
+    debater = Debater("A", "Pro", "Topic", client, gatekeeper)
+
+    with _patch.object(debater.search_tool, "search", new_callable=AsyncMock) as mock_search:
+        await debater.get_argument([{"role": "user", "content": "Hello"}], round_num=1)
+        mock_search.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_web_search_attempted_when_flag_true():
+    """Web search is attempted when client.supports_web_search is True."""
+    from unittest.mock import patch as _patch
+    client = MockAIClient("test", "key")
+    client.supports_web_search = True  # override for this test
+    gatekeeper = ApiGatekeeper(rpm_limit=1000)
+    debater = Debater("A", "Pro", "Topic", client, gatekeeper)
+
+    with _patch.object(debater.search_tool, "search", new_callable=AsyncMock, return_value=[]) as mock_search:
+        await debater.get_argument([{"role": "user", "content": "Hello"}], round_num=1)
+        mock_search.assert_called_once()

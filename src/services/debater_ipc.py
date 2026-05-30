@@ -22,9 +22,11 @@ class DebaterIpcMixin:
         self.logger.info("[%s] generating argument for round %d", self.name, msg.round_num)
         argument = await self.get_argument(history, round_num=msg.round_num)
         history.append({"role": "assistant", "content": argument})
+        sources = getattr(self, "last_sources", [])
         await self.outbox.send(DebateMessage(
             msg_type=MessageType.ARGUMENT, sender=self.name,
             receiver="judge", payload=argument, round_num=msg.round_num,
+            metadata={"sources": sources} if sources else {},
         ))
         self.logger.info("[%s] sent ARGUMENT round %d", self.name, msg.round_num)
 

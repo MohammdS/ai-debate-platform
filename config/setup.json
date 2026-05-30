@@ -2,7 +2,6 @@
   "api": {
     "openai_model": "gpt-4",
     "openrouter_model": "openai/gpt-oss-120b:free",
-    "anthropic_model": "claude-3-opus-20240229",
     "gemini_model": "gemini-2.5-flash",
     "groq_model": "llama-3.1-8b-instant",
     "zai_model": "glm-4.7-flash",
@@ -12,17 +11,35 @@
   },
   "debate": {
     "total_rounds": 10,
-    "debater_max_tokens": 160,
+    "min_rounds": 1,
+    "max_rounds": 10,
+    "debater_max_tokens": 220,
     "judge_max_tokens": 400,
     "temperature": 0.7,
-    "debater_max_words": 90,
+    "debater_max_words": 130,
     "judge_max_words": 200,
     "judge_max_transcript_entries": 20
   },
   "defaults": {
     "provider_a": "zai",
     "provider_b": "groq",
-    "judge_provider": "groq"
+    "judge_provider": "groq",
+    "topic": "Is AI a threat?",
+    "stance_a": "AI is a significant threat",
+    "stance_b": "AI is not a threat",
+    "menu_stance_a": "Yes, strongly agree",
+    "menu_stance_b": "No, strongly disagree"
+  },
+  "providers": {
+    "available": ["groq", "gemini", "openai", "zai", "openrouter", "mock"],
+    "labels": {
+      "groq": "Groq",
+      "gemini": "Gemini",
+      "openai": "OpenAI",
+      "zai": "Z.ai",
+      "openrouter": "OpenRouter",
+      "mock": "Mock"
+    }
   },
   "logs": {
     "log_dir": "logs",
@@ -31,7 +48,8 @@
   },
   "server": {
     "host": "127.0.0.1",
-    "port": 8000
+    "port": 8000,
+    "max_concurrent_debates": 3
   },
   "watchdog": {
     "timeout_seconds": 600.0,
@@ -43,7 +61,6 @@
     "summarization_snippet_chars": 80,
     "debater_a_skill": "evidence_based",
     "debater_b_skill": "socratic",
-    "log_skills_in_transcript": false,
     "debater_pool": [
       "RepetitionGuardSkill",
       "RebuttalSkill",

@@ -20,6 +20,18 @@ _DATA_SIGNAL = re.compile(
     r"\b(?:study|research|report|according to|data shows?|found that)\b",
     re.I,
 )
+_ASSERTION_SIGNAL = re.compile(
+    r"\b(?:clearly|obviously|everyone knows|undeniably|it is a fact|it is clear)\b",
+    re.I,
+)
+_CONCESSION_SIGNAL = re.compile(
+    r"\b(?:however|admittedly|granted|while it is true|i acknowledge|i concede)\b",
+    re.I,
+)
+_TRIVIAL_SIGNAL = re.compile(
+    r"^(?:yes|no|ok|okay|sure|agreed|i see|fair enough)[.!?]?\s*$",
+    re.I,
+)
 _FALLBACK_CHARS = 120
 
 
@@ -46,8 +58,22 @@ class RebuttalSkill(BaseSkill):
     name = "rebuttal"
     description = "Targets the opponent's most specific/data-driven claim and demands a new point"
 
-    def can_handle(self, context: SkillContext) -> bool:
-        return context.round_num > 1 and bool(context.opponent_last_message)
+    def score(self, context: SkillContext) -> float:
+        if context.round_num <= 1 or not context.opponent_last_message:
+            return 0.0
+        msg = context.opponent_last_message
+        if _TRIVIAL_SIGNAL.match(msg.strip()):
+            return 0.0
+        s = 0.65
+        if _DATA_SIGNAL.search(msg):
+            s += 0.20
+        if _ASSERTION_SIGNAL.search(msg):
+            s += 0.10
+        if _CONCESSION_SIGNAL.search(msg):
+            s -= 0.15
+        if len(msg.split()) < 20:
+            s -= 0.20
+        return min(1.0, max(0.0, s))
 
     def run(self, context: SkillContext) -> SkillResult:
         cfg = self._get_config()

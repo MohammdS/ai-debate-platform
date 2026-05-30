@@ -1,43 +1,50 @@
-# Product Requirements Document — AI Debate Platform
+# Product Requirements Document - AI Debate Platform
 
 ## 1. Overview
-A Python-based platform for structured, competitive AI debates. Two AI debaters argue opposing stances on a topic; a third AI judge moderates, relays messages, and declares a winner.
+
+The AI Debate Platform runs structured competitive debates between two LLM-powered debaters and a third LLM-powered judge. Debaters argue opposing stances, the judge relays messages, and the system exports a final verdict plus transcript evidence.
 
 ## 2. Objectives
-- Orchestrate a real debate between two LLM-powered agents.
-- Enforce competitive, non-conceding behaviour via system prompts.
-- Deliver a scored verdict from a neutral judge.
-- Meet professional software engineering standards (<150 lines/file, TDD, OOP, uv, ruff).
 
-## 3. Roles
+- Orchestrate a real debate between two autonomous AI agents.
+- Keep communication explicit through typed IPC queue channels.
+- Enforce clear roles: Pro, Contra, and Judge.
+- Select debate skills per turn and inject skill guidance into prompts.
+- Provide deterministic mock mode for tests and demos without API keys.
+- Meet professional software standards: Python 3.12+, `uv`, ruff, >=85% coverage, config-driven runtime behavior, and source files under 150 lines.
+
+## 3. User Roles
+
 | Role | Responsibility |
 |---|---|
-| **Debater A** | Defends stance A; never concedes |
-| **Debater B** | Defends stance B; never concedes |
-| **Judge** | Relays messages between debaters; evaluates transcript; declares winner |
+| Debater A / Pro | Defends stance A and sends arguments through the judge |
+| Debater B / Contra | Defends stance B and sends counterarguments through the judge |
+| Judge | Relays turns, evaluates the transcript, scores both sides, and declares a winner |
+| User / Evaluator | Chooses topic, stances, providers, and reviews transcript/verdict output |
 
-## 4. Debate Structure
-- 10 rounds (10 arguments per debater = 20 total turns).
-- All messages flow through the Judge (child → father → child).
-- Judge evaluates full transcript at end and scores both debaters (0–100).
-- Judge **must** declare a winner — ties forbidden.
+## 4. Functional Requirements
 
-## 5. Communication Protocol
-- All inter-agent messages are JSON-serialized on `asyncio.Queue` channels (IPC).
-- Message types: `ARGUMENT | RELAY | VERDICT | SHUTDOWN`.
-- No direct debater-to-debater communication.
+- Run a default 10-round debate, producing 20 debater turns total.
+- Support CLI and browser GUI workflows.
+- Support OpenAI, Gemini, Groq, ZAI, OpenRouter, and Mock providers.
+- Route all provider calls through `LLMService`, provider clients, and `ApiGatekeeper`.
+- Export Markdown and JSON debate results.
+- Export per-turn skill usage logs.
+- Keep all API keys in environment variables only.
 
-## 6. Technical Requirements
-- **Language:** Python 3.12+
-- **Package manager:** `uv`
-- **Linter:** `ruff`
-- **Testing:** `pytest` + `pytest-asyncio`, >85% coverage
-- **AI providers:** OpenAI, Gemini, Groq, Mock
-- **Config:** `config/setup.json` — no hardcoded parameters
-- **Secrets:** API keys via `.env` only; `.env` in `.gitignore`
+## 5. Non-Functional Requirements
 
-## 7. Success Criteria
-- Full 10-round debate runs end-to-end with real or mock LLM.
-- Verdict produced with winner and scores.
-- All tests pass; coverage ≥ 85%.
-- Ruff reports zero lint errors.
+- Tests must run offline with mock clients.
+- Coverage must stay above 85%.
+- Ruff must report zero lint errors.
+- Runtime parameters must be configurable under `config/`.
+- Production files under `src/` must stay at or below 150 physical lines.
+- Failures must be logged and surfaced safely without leaking secrets.
+
+## 6. Success Criteria
+
+- `uv run pytest -q` passes.
+- `uv run pytest --cov=src --cov-report=term-missing` exceeds the coverage threshold.
+- `uv run ruff check src tests` passes.
+- Mock debate runs end to end without API keys.
+- GUI and CLI both produce a judge verdict and exported results.

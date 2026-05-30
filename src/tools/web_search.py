@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from ddgs import DDGS
 
-from src.tools.search_quality import build_queries, is_blocked, score_domain
+from src.tools.search_quality import build_queries, is_allowed_for_topic, score_domain
 
 
 @dataclass
@@ -56,12 +56,13 @@ class WebSearchTool:
 
         # Run all queries concurrently
         per_query = await asyncio.gather(
-            *[self._run_query(q, seen) for q in queries],
+            *[self._run_query(q, seen, topic) for q in queries],
             return_exceptions=True,
         )
 
         merged: list[SearchResult] = []
         seen_in_run: set[str] = set()
+        # `seen` blocks cross-turn reuse; `seen_in_run` dedupes overlapping query fan-out.
         for batch in per_query:
             if isinstance(batch, Exception):
                 self._logger.warning("[web_search] query failed: %s", batch)
@@ -81,13 +82,13 @@ class WebSearchTool:
         )
         return result
 
-    async def _run_query(self, query: str, seen_urls: set[str]) -> list[SearchResult]:
+    async def _run_query(self, query: str, seen_urls: set[str], topic: str) -> list[SearchResult]:
         """Execute one DDG query with timeout; return filtered results."""
         self._logger.debug("[web_search] query: %s", query)
         try:
             return await asyncio.wait_for(
                 asyncio.get_running_loop().run_in_executor(
-                    None, self._sync_search, query, seen_urls
+                    None, self._sync_search, query, seen_urls, topic
                 ),
                 timeout=self.timeout,
             )
@@ -98,12 +99,12 @@ class WebSearchTool:
             self._logger.warning("[web_search] error (%s): %s", type(exc).__name__, exc)
             return []
 
-    def _sync_search(self, query: str, seen_urls: set[str]) -> list[SearchResult]:
+    def _sync_search(self, query: str, seen_urls: set[str], topic: str) -> list[SearchResult]:
         results: list[SearchResult] = []
         with DDGS() as ddgs:
             for r in ddgs.text(query, max_results=self.max_results + 4):
                 url = r.get("href", "")
-                if not url or url in seen_urls or is_blocked(url):
+                if not url or url in seen_urls or not is_allowed_for_topic(url, topic):
                     continue
                 results.append(SearchResult(
                     title=r.get("title", ""),
