@@ -197,12 +197,15 @@ find src -name '*.py' -exec wc -l {} +
 # Verify the tracked transcript and skill log are present
 git status --short docs/debate_transcript.md docs/skill_log.md
 
+# Verify assignment-ready env template exists
+git status --short .env.example
+
 # Full quality gate
 uv run ruff check src tests
 uv run pytest --cov=src --cov-report=term-missing
 ```
 
-Current verified result: `401 passed`, total coverage `92.20%`, and every Python file in `src/` is under 150 physical lines.
+Current verified result: `410 passed`, total coverage remains above the required threshold, and every Python file in `src/` is under 150 physical lines.
 
 ---
 

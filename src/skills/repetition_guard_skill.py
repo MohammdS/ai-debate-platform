@@ -14,6 +14,10 @@ _DEFAULT_TEMPLATE = (
     "PREVIOUSLY ARGUED — do NOT repeat or rephrase these points:\n{phrases}\n"
     "You MUST introduce a genuinely new idea this turn."
 )
+_ROUND1_FALLBACK = (
+    "First-turn baseline: choose a distinct angle now and avoid reusing this framing "
+    "in later rounds."
+)
 
 
 class RepetitionGuardSkill(BaseSkill):
@@ -39,6 +43,13 @@ class RepetitionGuardSkill(BaseSkill):
         template = cfg.get("template", _DEFAULT_TEMPLATE)
 
         own = [e for e in context.transcript if e.get("role") == "assistant"]
+        if not own:
+            return SkillResult(
+                skill_name=self.name,
+                selected=True,
+                reason="first-turn anti-repetition baseline",
+                content=_ROUND1_FALLBACK,
+            )
         recent = own[-max_track:]
 
         phrases: list[str] = []

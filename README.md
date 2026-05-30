@@ -10,6 +10,26 @@ A professional, modular Python platform where AI agents engage in structured com
 
 ---
 
+## Latest Debate Artifacts
+
+- Full debate transcript: [docs/debate_transcript.md](docs/debate_transcript.md)
+- Skill usage log: [docs/skill_log.md](docs/skill_log.md)
+
+---
+
+## Submission Checklist
+
+- Environment template: `.env.example` (no secrets committed)
+- Main quality gate:
+  - `uv run ruff check src tests`
+  - `uv run pytest --cov=src --cov-report=term-missing`
+- Required evidence docs:
+  - Debate transcript: [docs/debate_transcript.md](docs/debate_transcript.md)
+  - Skill log: [docs/skill_log.md](docs/skill_log.md)
+  - Requirements traceability: [docs/REQUIREMENTS_TRACEABILITY.md](docs/REQUIREMENTS_TRACEABILITY.md)
+
+---
+
 ## Architecture Overview
 
 ```mermaid
@@ -127,7 +147,7 @@ uv sync
 
 ```bash
 # Copy the example environment file
-cp .env-example .env
+cp .env.example .env
 
 # Edit .env and add your API keys (only needed for real providers)
 # OPENAI_API_KEY=sk-...
@@ -356,7 +376,7 @@ ai-debate-platform/
 ├── tests/
 │   └── unit/               # 25+ unit test files
 ├── results/                # Exported debate transcripts (auto-generated)
-├── .env-example            # API key template
+├── .env.example            # API key template
 ├── pyproject.toml
 └── uv.lock
 ```
