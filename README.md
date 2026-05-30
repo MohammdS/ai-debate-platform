@@ -37,67 +37,31 @@ In a normal debate run:
 - Exports results so the debate can be reviewed after the run instead of disappearing in terminal output.
 - Includes a mock execution path for grading, tests, and demos without API keys.
 
-## Evaluation Evidence
+## Screenshots
 
-Last verified on 2026-05-30:
+The screenshots below show the browser workflow and the output from a completed debate run. In the generated `results/` artifacts, the sample debate topic was **"who is better barcelona or realmadrid"**. Debater A argued for Real Madrid, Debater B argued for Barcelona, and the judge awarded the win to Contra / Barcelona with a final score of **82/100** against **66/100**.
 
-| Criterion | Evidence | Verification command |
-|---|---|---|
-| Python package managed with `uv` | `pyproject.toml` and `uv.lock` are committed | `uv sync` |
-| Full automated test suite | `419 passed` | `uv run pytest -q` |
-| Coverage above 85% | `91.76%` total coverage | `uv run pytest --cov=src --cov-report=term-missing` |
-| Ruff linting | `All checks passed!` | `uv run ruff check src tests` |
-| Source file line cap | Every production file in `src/` is <= 150 lines | `uv run pytest tests/unit/test_submission_readiness.py -q` |
-| No committed secrets | `.env.example` only contains placeholders; `.env` is ignored | `git check-ignore -v .env` |
-| Assignment traceability | 33 requirements mapped to implementation and tests | [docs/REQUIREMENTS_TRACEABILITY.md](docs/REQUIREMENTS_TRACEABILITY.md) |
+The run was a good demonstration of the platform because the agents did not only trade isolated claims. The debate developed across several rounds: Real Madrid opened with Champions League dominance and historic success, while Barcelona countered with La Masia, tactical identity, cultural impact, adaptability, and social contribution. The judge favored Barcelona because Contra gave stronger rebuttals, answered Pro's financial and trophy-count arguments more directly, and kept a more consistent narrative.
 
-Key grading artifacts:
+The exported skill log also shows that the debate system was active during the run. Both sides repeatedly used `repetition_guard`, `rebuttal`, `progression`, and `tone_moderation`; Pro leaned on `evidence` and `citation`, while Contra used `socratic` questioning to challenge assumptions. The exported token summary for this run recorded **28,804 total tokens** with an estimated cost of **$0.009593 USD**.
 
-- Product requirements: [docs/PRD.md](docs/PRD.md)
-- Architecture plan: [docs/PLAN.md](docs/PLAN.md)
-- Testing guide: [docs/TESTING.md](docs/TESTING.md)
-- Limitations: [docs/LIMITATIONS.md](docs/LIMITATIONS.md)
-- Latest debate transcript: [docs/debate_transcript.md](docs/debate_transcript.md)
-- Latest skill log: [docs/skill_log.md](docs/skill_log.md)
-- Skill configuration: [config/skills.json](config/skills.json)
+### Setup Screen
 
-## What We Built
+The setup screen shows the core controls exposed to the user: topic, opposing stances, provider choices, judge provider, and round count. This is where the platform turns a plain debate question into a configured multi-agent run.
 
-The completed work covers the full application, not only the agent prompts. The repository contains the debate engine, model integration layer, reliability controls, two user interfaces, configuration files, documentation, exported sample artifacts, and a deterministic test suite.
+<img width="1512" height="982" alt="AI Debate Platform setup screen" src="https://github.com/user-attachments/assets/ddf09ebd-181f-4064-a0f7-57ca5324a1f1" />
 
-| Area | Implementation |
-|---|---|
-| Multi-agent debate | Pro debater, Contra debater, and Judge agents run a full debate across configurable rounds. |
-| Judge-led orchestration | The judge relays turns, preserves the debate flow, evaluates the final transcript, and emits a structured verdict. |
-| Typed IPC | Agents communicate through typed `asyncio.Queue` channels instead of direct debater-to-debater calls. |
-| Provider routing | OpenAI, Gemini, Groq, ZAI, OpenRouter, and deterministic Mock mode share a common client interface. |
-| API safeguards | `ApiGatekeeper` handles rate limits, retries, timeouts, token accounting, and estimated cost tracking. |
-| Watchdog supervision | `WatchdogAgent` monitors long-running debate tasks and restarts failed work where appropriate. |
-| Debate skills | Rebuttal, evidence, citation, progression, Socratic, summarization, tone moderation, and repetition guard skills can guide each turn. |
-| User interfaces | The project includes both a CLI and a browser GUI with live NDJSON transcript streaming. |
-| Exports | Each run can export Markdown and JSON transcripts, verdicts, token usage, and skill logs. |
-| Testability | Mock mode allows deterministic local runs without API keys or network calls. |
+### Live Transcript
 
-## Work Completed
+The live transcript view shows the debate while it is running. Each completed argument is streamed into the browser as an NDJSON event, so the user can follow the back-and-forth instead of waiting for a final block of text.
 
-- Built the project scaffold, dependency lockfile, configuration system, logging, and package layout.
-- Implemented provider clients and a shared SDK layer for real and mock model calls.
-- Implemented the debate agents, orchestrator, judge relay, transcript memory, and verdict flow.
-- Implemented typed IPC channels so agent communication is explicit and testable.
-- Implemented gatekeeper and watchdog services for rate limits, retries, timeouts, and long-running task supervision.
-- Implemented the debate skill system and per-turn skill logging.
-- Implemented the CLI, browser GUI, streaming endpoint, and static-file safety checks.
-- Implemented exports for transcripts, structured JSON results, token usage, cost summaries, and skill logs.
-- Added documentation for requirements, architecture, testing, known limitations, and traceability.
-- Added broad unit and integration coverage, plus submission-specific quality checks.
+<img width="1512" height="982" alt="AI Debate Platform live transcript" src="https://github.com/user-attachments/assets/c1e34436-58af-4503-95b8-be5489f97012" />
 
-## Engineering Highlights
+### Judge Verdict
 
-- Clean package layout under `src/` with separate modules for CLI, GUI, IPC, SDK clients, services, shared utilities, skills, and tools.
-- Configuration-driven behavior through `config/setup.json`, `models.json`, `rate_limits.json`, `pricing.json`, and skill configuration files.
-- Assignment-focused quality gates: 419 passing tests, 91.76% coverage, Ruff linting, and a tested 150-line cap for production source files.
-- Safe submission defaults: `.env.example` contains only placeholders, `.env` is ignored, and mock mode works without secrets.
-- Traceability documentation maps requirements to implementation and tests in [docs/REQUIREMENTS_TRACEABILITY.md](docs/REQUIREMENTS_TRACEABILITY.md).
+The verdict screen shows the final evaluation after the judge reviews the transcript. In the observed run, Contra / Barcelona won because the judge rated its rebuttal quality, relevance, clarity, and evidence use higher than Pro's case for Real Madrid.
+
+<img width="1512" height="982" alt="AI Debate Platform judge verdict" src="https://github.com/user-attachments/assets/cadf393a-9e4f-407d-a8b3-d25721bb2a5d" />
 
 ## Quick Start
 
@@ -158,6 +122,36 @@ OPENROUTER_API_KEY=your_openrouter_key_here
 ```
 
 Mock mode does not require `.env`.
+
+## What We Built
+
+The completed work covers the full application, not only the agent prompts. The repository contains the debate engine, model integration layer, reliability controls, two user interfaces, configuration files, documentation, exported sample artifacts, and a deterministic test suite.
+
+| Area | Implementation |
+|---|---|
+| Multi-agent debate | Pro debater, Contra debater, and Judge agents run a full debate across configurable rounds. |
+| Judge-led orchestration | The judge relays turns, preserves the debate flow, evaluates the final transcript, and emits a structured verdict. |
+| Typed IPC | Agents communicate through typed `asyncio.Queue` channels instead of direct debater-to-debater calls. |
+| Provider routing | OpenAI, Gemini, Groq, ZAI, OpenRouter, and deterministic Mock mode share a common client interface. |
+| API safeguards | `ApiGatekeeper` handles rate limits, retries, timeouts, token accounting, and estimated cost tracking. |
+| Watchdog supervision | `WatchdogAgent` monitors long-running debate tasks and restarts failed work where appropriate. |
+| Debate skills | Rebuttal, evidence, citation, progression, Socratic, summarization, tone moderation, and repetition guard skills can guide each turn. |
+| User interfaces | The project includes both a CLI and a browser GUI with live NDJSON transcript streaming. |
+| Exports | Each run can export Markdown and JSON transcripts, verdicts, token usage, and skill logs. |
+| Testability | Mock mode allows deterministic local runs without API keys or network calls. |
+
+## Work Completed
+
+- Built the project scaffold, dependency lockfile, configuration system, logging, and package layout.
+- Implemented provider clients and a shared SDK layer for real and mock model calls.
+- Implemented the debate agents, orchestrator, judge relay, transcript memory, and verdict flow.
+- Implemented typed IPC channels so agent communication is explicit and testable.
+- Implemented gatekeeper and watchdog services for rate limits, retries, timeouts, and long-running task supervision.
+- Implemented the debate skill system and per-turn skill logging.
+- Implemented the CLI, browser GUI, streaming endpoint, and static-file safety checks.
+- Implemented exports for transcripts, structured JSON results, token usage, cost summaries, and skill logs.
+- Added documentation for requirements, architecture, testing, known limitations, and traceability.
+- Added broad unit and integration coverage, plus submission-specific quality checks.
 
 ## Architecture
 
@@ -249,7 +243,9 @@ Supported providers:
 | OpenRouter | `OpenRouterClient` | `OPENROUTER_API_KEY` |
 | Mock | `MockAIClient` | None |
 
-## Testing
+## Testing And Evaluation Evidence
+
+The tests are deterministic and do not require real API keys because provider calls are mocked or routed through `MockAIClient`.
 
 ```bash
 # Full suite
@@ -265,7 +261,25 @@ uv run ruff check src tests
 uv run pytest tests/unit/test_submission_readiness.py -q
 ```
 
-The tests are deterministic and do not require real API keys because provider calls are mocked or routed through `MockAIClient`.
+Last verified on 2026-05-30:
+
+| Criterion | Evidence | Verification command |
+|---|---|---|
+| Python package managed with `uv` | `pyproject.toml` and `uv.lock` are committed | `uv sync` |
+| Full automated test suite | `419 passed` | `uv run pytest -q` |
+| Coverage above 85% | `91.76%` total coverage | `uv run pytest --cov=src --cov-report=term-missing` |
+| Ruff linting | `All checks passed!` | `uv run ruff check src tests` |
+| Source file line cap | Every production file in `src/` is <= 150 lines | `uv run pytest tests/unit/test_submission_readiness.py -q` |
+| No committed secrets | `.env.example` only contains placeholders; `.env` is ignored | `git check-ignore -v .env` |
+| Assignment traceability | 33 requirements mapped to implementation and tests | [docs/REQUIREMENTS_TRACEABILITY.md](docs/REQUIREMENTS_TRACEABILITY.md) |
+
+## Engineering Highlights
+
+- Clean package layout under `src/` with separate modules for CLI, GUI, IPC, SDK clients, services, shared utilities, skills, and tools.
+- Configuration-driven behavior through `config/setup.json`, `models.json`, `rate_limits.json`, `pricing.json`, and skill configuration files.
+- Assignment-focused quality gates: 419 passing tests, 91.76% coverage, Ruff linting, and a tested 150-line cap for production source files.
+- Safe submission defaults: `.env.example` contains only placeholders, `.env` is ignored, and mock mode works without secrets.
+- Traceability documentation maps requirements to implementation and tests in [docs/REQUIREMENTS_TRACEABILITY.md](docs/REQUIREMENTS_TRACEABILITY.md).
 
 ## Project Structure
 
@@ -290,13 +304,17 @@ ai-debate-platform/
 `-- uv.lock
 ```
 
-## Screenshots
+## Key Documentation
 
-<img width="1512" height="982" alt="AI Debate Platform setup screen" src="https://github.com/user-attachments/assets/ddf09ebd-181f-4064-a0f7-57ca5324a1f1" />
-
-<img width="1512" height="982" alt="AI Debate Platform live transcript" src="https://github.com/user-attachments/assets/c1e34436-58af-4503-95b8-be5489f97012" />
-
-<img width="1512" height="982" alt="AI Debate Platform judge verdict" src="https://github.com/user-attachments/assets/cadf393a-9e4f-407d-a8b3-d25721bb2a5d" />
+- Product requirements: [docs/PRD.md](docs/PRD.md)
+- Architecture plan: [docs/PLAN.md](docs/PLAN.md)
+- Full project tracker: [docs/TODO.md](docs/TODO.md)
+- Testing guide: [docs/TESTING.md](docs/TESTING.md)
+- Limitations: [docs/LIMITATIONS.md](docs/LIMITATIONS.md)
+- Requirements traceability: [docs/REQUIREMENTS_TRACEABILITY.md](docs/REQUIREMENTS_TRACEABILITY.md)
+- Latest debate transcript: [docs/debate_transcript.md](docs/debate_transcript.md)
+- Latest skill log: [docs/skill_log.md](docs/skill_log.md)
+- Skill configuration: [config/skills.json](config/skills.json)
 
 ## License
 
