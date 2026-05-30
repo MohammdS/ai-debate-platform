@@ -10,6 +10,33 @@ The project demonstrates a complete multi-agent workflow rather than a single pr
 ![pytest](https://img.shields.io/badge/pytest-419%20passed-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-91.76%25-brightgreen)
 
+## Project Overview
+
+This project turns a debate topic into a complete moderated AI debate. A user chooses a topic, writes two opposing stances, selects model providers for each debater and the judge, and starts the run from either the CLI or the browser GUI. The system then coordinates the agents, records each turn, applies debate skills, manages provider calls safely, and returns a final judge verdict with exported evidence.
+
+The main work was building the platform around real software boundaries instead of one large script. The codebase separates the user interfaces, model-provider SDK, debate orchestration, IPC messages, safety/reliability controls, debate skills, exports, and tests. That structure makes the project easier to inspect, grade, run locally, and extend later.
+
+In a normal debate run:
+
+1. The user enters a topic, two stances, providers, and round count.
+2. The orchestrator creates Debater A, Debater B, and Judge agents.
+3. Debater A argues for the first stance and sends the argument through IPC.
+4. The judge receives the argument, records it, and relays it to Debater B.
+5. Debater B responds with the opposing stance, also through the judge.
+6. The loop continues for the configured number of rounds.
+7. The judge evaluates the full transcript and produces a scored verdict.
+8. The run is exported as transcript, JSON data, token/cost summaries, and skill logs.
+
+## What The Platform Does
+
+- Runs full Pro-vs-Contra debates with a separate judge agent.
+- Lets each role use a different provider, including OpenAI, Gemini, Groq, ZAI, OpenRouter, or deterministic Mock mode.
+- Streams live debate events to the browser GUI while also supporting a terminal workflow.
+- Applies debate skills such as rebuttal, evidence use, citation guidance, progression, Socratic questioning, tone moderation, summarization, and repetition control.
+- Protects external model calls with rate limiting, retries, timeouts, token tracking, and estimated cost tracking.
+- Exports results so the debate can be reviewed after the run instead of disappearing in terminal output.
+- Includes a mock execution path for grading, tests, and demos without API keys.
+
 ## Evaluation Evidence
 
 Last verified on 2026-05-30:
@@ -36,7 +63,7 @@ Key grading artifacts:
 
 ## What We Built
 
-The system is organized as a production-style multi-agent application with clear boundaries between orchestration, model access, safeguards, skills, and presentation.
+The completed work covers the full application, not only the agent prompts. The repository contains the debate engine, model integration layer, reliability controls, two user interfaces, configuration files, documentation, exported sample artifacts, and a deterministic test suite.
 
 | Area | Implementation |
 |---|---|
@@ -50,6 +77,19 @@ The system is organized as a production-style multi-agent application with clear
 | User interfaces | The project includes both a CLI and a browser GUI with live NDJSON transcript streaming. |
 | Exports | Each run can export Markdown and JSON transcripts, verdicts, token usage, and skill logs. |
 | Testability | Mock mode allows deterministic local runs without API keys or network calls. |
+
+## Work Completed
+
+- Built the project scaffold, dependency lockfile, configuration system, logging, and package layout.
+- Implemented provider clients and a shared SDK layer for real and mock model calls.
+- Implemented the debate agents, orchestrator, judge relay, transcript memory, and verdict flow.
+- Implemented typed IPC channels so agent communication is explicit and testable.
+- Implemented gatekeeper and watchdog services for rate limits, retries, timeouts, and long-running task supervision.
+- Implemented the debate skill system and per-turn skill logging.
+- Implemented the CLI, browser GUI, streaming endpoint, and static-file safety checks.
+- Implemented exports for transcripts, structured JSON results, token usage, cost summaries, and skill logs.
+- Added documentation for requirements, architecture, testing, known limitations, and traceability.
+- Added broad unit and integration coverage, plus submission-specific quality checks.
 
 ## Engineering Highlights
 
