@@ -47,6 +47,7 @@ class Debater(DebaterIpcMixin, BaseAgent):
         self._compressor = ContextCompressor()
         self._challenge_limiter = SourceChallengeLimiter()
         self._memory = DebateMemory()
+        self.last_sources: list[dict[str, str]] = []
         self._skill_selector = SkillSelector(
             build_skill_pool(CFG.get_value("skills", "debater_pool", DEFAULT_POOL)),
             debater_name=self.name,
@@ -110,6 +111,7 @@ class Debater(DebaterIpcMixin, BaseAgent):
         """Direct SDK call — preserved for tests and backward compatibility."""
         enriched_history = list(history)
         has_web_evidence = False
+        self.last_sources = []
         # Keep web evidence near the active turn without storing it as debater memory.
         if round_num > 0 and self.client.supports_web_search:
             try:
@@ -122,6 +124,10 @@ class Debater(DebaterIpcMixin, BaseAgent):
                 )
                 if results:
                     self._memory.register_urls([r.url for r in results])
+                    self.last_sources = [
+                        {"title": r.title, "url": r.url, "snippet": r.snippet}
+                        for r in results
+                    ]
                 citation_text = self.search_tool.format_for_prompt(results)
                 if citation_text:
                     has_web_evidence = True

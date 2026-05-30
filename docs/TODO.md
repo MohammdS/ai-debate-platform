@@ -12,7 +12,7 @@ This tracker now reflects the completed submission scope for the current branch.
 ## Foundation
 - [x] Project scaffold created with `uv`, `pyproject.toml`, and tracked dependency lockfile
 - [x] Runtime configuration centralized under `config/`
-- [x] `.env-example` provided and secrets excluded via `.gitignore`
+- [x] `.env.example` provided and secrets excluded via `.gitignore`
 - [x] Shared configuration loader implemented in `src/shared/config.py`
 - [x] Structured logging and rotating file logs implemented in `src/shared/logger.py`
 - [x] Source tree organized into `sdk`, `services`, `skills`, `shared`, `ipc`, `gui`, `cli`, and `tools`
@@ -93,7 +93,7 @@ This tracker now reflects the completed submission scope for the current branch.
 - [x] Unit tests added for skills, search, rate config, logging, exporter, and config loading
 - [x] Unit tests added for GUI runner and server safety behavior
 - [x] Integration debate-flow test added with `MockAIClient`
-- [x] Full suite passing: `401` tests
+- [x] Full suite passing: `410` tests
 - [x] Coverage target exceeded: `92.20%`
 - [x] Ruff lint checks passing
 
@@ -119,3 +119,5 @@ This tracker now reflects the completed submission scope for the current branch.
 - [x] Removed obsolete `scripts/` helper file
 - [x] Removed unused `knowledge/` directory
 - [x] GUI screenshot item explicitly closed for the current submission set
+- [x] Trusted-domain filtering added for sports debates to reduce junk citations
+- [x] Pattern-based blocking added for adult/clickbait sources in web search

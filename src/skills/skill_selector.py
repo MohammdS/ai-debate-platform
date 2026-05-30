@@ -4,7 +4,7 @@ from src.skills.base_skill import BaseSkill
 from src.skills.models import SkillContext, SkillResult
 
 # Skills in this set always run and do not count against the competitive cap.
-_ALWAYS_RUN: set[str] = {"tone_moderation"}
+_ALWAYS_RUN: set[str] = {"tone_moderation", "repetition_guard"}
 _DEFAULT_MAX_SKILLS = 3
 
 

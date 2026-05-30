@@ -51,7 +51,17 @@ class DebateExporter:
                 f.write("\n")
             for msg in history:
                 name = msg.get("name", msg.get("role", "Unknown"))
-                f.write(f"### {name}\n{msg['content']}\n\n---\n\n")
+                f.write(f"### {name}\n{msg['content']}\n\n")
+                sources = msg.get("sources", [])
+                if sources:
+                    f.write("Sources used:\n")
+                    for src in sources:
+                        title = src.get("title", "").strip() or "Untitled"
+                        url = src.get("url", "").strip()
+                        if url:
+                            f.write(f"- {title}: {url}\n")
+                    f.write("\n")
+                f.write("---\n\n")
 
             f.write(f"## JUDGE VERDICT\n{verdict}\n")
 
