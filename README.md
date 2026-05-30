@@ -14,7 +14,7 @@ A professional, modular Python platform where AI agents engage in structured com
 
 - Full debate transcript: [docs/debate_transcript.md](docs/debate_transcript.md)
 - Skill usage log: [docs/skill_log.md](docs/skill_log.md)
-
+- Skill prompt:[config/skills.json](config/skills.json) 
 ---
 
 ## Submission Checklist
