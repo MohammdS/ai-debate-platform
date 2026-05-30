@@ -1,6 +1,8 @@
 # AI Debate Platform
 
-A modular Python 3.12 platform where two AI debaters argue opposing stances, a judge relays turns over typed IPC channels, and the system exports a scored verdict, transcript, token usage, and skill log.
+**Welcome to our university project!** We are a team of passionate university students who poured our hard work and late nights into building this platform. We set out to explore the capabilities of large language models in multi-agent environments by creating a fully automated, moderated debate system. In this project, we designed an application where two AI agents represent opposing stances on any given topic. They are dynamically guided by conversational "skills" (such as citing evidence, issuing rebuttals, or asking Socratic questions) to make the debate engaging and logical. A third AI agent acts as a Judge, orchestrating the flow of the debate, evaluating the arguments, and rendering a final verdict based on the transcript.
+
+Under the hood, it is a robust and modular Python 3.12 platform where the AI debaters argue opposing stances, a judge relays turns over typed IPC channels, and the system exports a scored verdict, transcript, token usage, and skill log.
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue?logo=python)
 ![uv](https://img.shields.io/badge/uv-package%20manager-purple)
