@@ -1,8 +1,8 @@
 # AI Debate Platform
 
-**Welcome to our university project!** We are a team of passionate university students who poured our hard work and late nights into building this platform. We set out to explore the capabilities of large language models in multi-agent environments by creating a fully automated, moderated debate system. In this project, we designed an application where two AI agents represent opposing stances on any given topic. They are dynamically guided by conversational "skills" (such as citing evidence, issuing rebuttals, or asking Socratic questions) to make the debate engaging and logical. A third AI agent acts as a Judge, orchestrating the flow of the debate, evaluating the arguments, and rendering a final verdict based on the transcript.
+AI Debate Platform is a modular Python 3.12 application for running structured debates between autonomous AI agents. Two debaters argue opposing stances on a configurable topic while a separate judge agent manages turn-taking, relays arguments through typed IPC channels, evaluates the final transcript, and produces a scored verdict.
 
-Under the hood, it is a robust and modular Python 3.12 platform where the AI debaters argue opposing stances, a judge relays turns over typed IPC channels, and the system exports a scored verdict, transcript, token usage, and skill log.
+The project demonstrates a complete multi-agent workflow rather than a single prompt call: provider routing, rate limiting, retry handling, watchdog supervision, role-specific skills, deterministic mock execution, browser and CLI entry points, live transcript streaming, and reproducible exports for grading and inspection.
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue?logo=python)
 ![uv](https://img.shields.io/badge/uv-package%20manager-purple)
@@ -34,16 +34,30 @@ Key grading artifacts:
 - Latest skill log: [docs/skill_log.md](docs/skill_log.md)
 - Skill configuration: [config/skills.json](config/skills.json)
 
-## What The Project Demonstrates
+## What We Built
 
-- Three-agent debate orchestration: Pro debater, Contra debater, and Judge.
-- Typed IPC over `asyncio.Queue` channels instead of direct debater-to-debater calls.
-- Provider abstraction for OpenAI, Gemini, Groq, ZAI, OpenRouter, and deterministic Mock mode.
-- API Gatekeeper with rate limits, retry handling, timeout control, token accounting, and cost estimates.
-- Watchdog supervision for heartbeat monitoring and restart handling.
-- Skill selection per turn, including rebuttal, evidence, citation, progression, Socratic, summarization, tone moderation, and repetition guard behavior.
-- CLI and browser GUI, including NDJSON live transcript streaming.
-- Markdown and JSON result exports with transcript, verdict, token usage, and skill log.
+The system is organized as a production-style multi-agent application with clear boundaries between orchestration, model access, safeguards, skills, and presentation.
+
+| Area | Implementation |
+|---|---|
+| Multi-agent debate | Pro debater, Contra debater, and Judge agents run a full debate across configurable rounds. |
+| Judge-led orchestration | The judge relays turns, preserves the debate flow, evaluates the final transcript, and emits a structured verdict. |
+| Typed IPC | Agents communicate through typed `asyncio.Queue` channels instead of direct debater-to-debater calls. |
+| Provider routing | OpenAI, Gemini, Groq, ZAI, OpenRouter, and deterministic Mock mode share a common client interface. |
+| API safeguards | `ApiGatekeeper` handles rate limits, retries, timeouts, token accounting, and estimated cost tracking. |
+| Watchdog supervision | `WatchdogAgent` monitors long-running debate tasks and restarts failed work where appropriate. |
+| Debate skills | Rebuttal, evidence, citation, progression, Socratic, summarization, tone moderation, and repetition guard skills can guide each turn. |
+| User interfaces | The project includes both a CLI and a browser GUI with live NDJSON transcript streaming. |
+| Exports | Each run can export Markdown and JSON transcripts, verdicts, token usage, and skill logs. |
+| Testability | Mock mode allows deterministic local runs without API keys or network calls. |
+
+## Engineering Highlights
+
+- Clean package layout under `src/` with separate modules for CLI, GUI, IPC, SDK clients, services, shared utilities, skills, and tools.
+- Configuration-driven behavior through `config/setup.json`, `models.json`, `rate_limits.json`, `pricing.json`, and skill configuration files.
+- Assignment-focused quality gates: 419 passing tests, 91.76% coverage, Ruff linting, and a tested 150-line cap for production source files.
+- Safe submission defaults: `.env.example` contains only placeholders, `.env` is ignored, and mock mode works without secrets.
+- Traceability documentation maps requirements to implementation and tests in [docs/REQUIREMENTS_TRACEABILITY.md](docs/REQUIREMENTS_TRACEABILITY.md).
 
 ## Quick Start
 
