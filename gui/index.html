@@ -10,7 +10,6 @@
   <main class="shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">AI Debate Platform</p>
         <h1 id="debate-title">AI Debate Platform</h1>
       </div>
       <label class="theme-switch" for="theme-toggle">
@@ -21,49 +20,62 @@
     </header>
 
     <section class="hero">
-      <form id="debate-form" class="panel">
+      <form id="debate-form" class="panel" novalidate>
         <div class="panel-head">
           <h2>Debate Setup</h2>
           <span id="judge-note">Judge model from setup.json</span>
         </div>
-        <label>Topic<input name="topic" placeholder="Is AI a threat?"></label>
-        <div class="grid">
-          <label>Debater A<input name="stance_a" placeholder="AI is a significant threat"></label>
-          <label>Debater B<input name="stance_b" placeholder="AI is not a threat"></label>
+        <div class="field topic-field">
+          <label for="topic">Topic</label>
+          <input id="topic" name="topic" required placeholder="Is AI a threat?">
         </div>
-        <div class="grid">
-          <label>Debater A Provider
-            <select name="provider_a">
-              <option value="zai">Z.ai</option>
-              <option value="groq">Groq</option>
-              <option value="openrouter">OpenRouter</option>
-              <option value="gemini">Gemini</option>
-              <option value="openai">OpenAI</option>
-              <option value="mock">Mock</option>
-            </select>
-          </label>
-          <label>Debater B Provider
-            <select name="provider_b">
-              <option value="groq">Groq</option>
-              <option value="zai">Z.ai</option>
-              <option value="openrouter">OpenRouter</option>
-              <option value="gemini">Gemini</option>
-              <option value="openai">OpenAI</option>
-              <option value="mock">Mock</option>
-            </select>
-          </label>
-          <label>Judge Provider
-            <select name="judge_provider">
-              <option value="groq">Groq</option>
-              <option value="zai">Z.ai</option>
-              <option value="openrouter">OpenRouter</option>
-              <option value="gemini">Gemini</option>
-              <option value="openai">OpenAI</option>
-              <option value="mock">Mock</option>
-            </select>
-          </label>
+        <div class="field rounds-field">
+          <label for="rounds">Rounds <span class="field-help">(max 10)</span></label>
+          <input id="rounds" name="rounds" type="number" min="1" max="10" value="10" required aria-describedby="rounds-help">
+          <span id="rounds-help" class="sr-only">Maximum 10 rounds.</span>
         </div>
-        <label>Rounds<input name="rounds" type="number" min="1" max="10" value="10"></label>
+        <div class="field">
+          <label for="stance-a">Debater A Stance</label>
+          <input id="stance-a" name="stance_a" required placeholder="AI is a significant threat">
+        </div>
+        <div class="field">
+          <label for="stance-b">Debater B Stance</label>
+          <input id="stance-b" name="stance_b" required placeholder="AI is not a threat">
+        </div>
+        <div class="field">
+          <label for="provider-a">Debater A Provider</label>
+          <select id="provider-a" name="provider_a" required>
+            <option value="zai">Z.ai</option>
+            <option value="groq">Groq</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="gemini">Gemini</option>
+            <option value="openai">OpenAI</option>
+            <option value="mock">Mock</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="provider-b">Debater B Provider</label>
+          <select id="provider-b" name="provider_b" required>
+            <option value="groq">Groq</option>
+            <option value="zai">Z.ai</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="gemini">Gemini</option>
+            <option value="openai">OpenAI</option>
+            <option value="mock">Mock</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="judge-provider">Judge Provider</label>
+          <select id="judge-provider" name="judge_provider" required>
+            <option value="groq">Groq</option>
+            <option value="zai">Z.ai</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="gemini">Gemini</option>
+            <option value="openai">OpenAI</option>
+            <option value="mock">Mock</option>
+          </select>
+        </div>
+        <p id="form-status" class="form-status" role="alert" aria-live="polite"></p>
         <button id="run-button" type="submit">Run Debate</button>
       </form>
     </section>

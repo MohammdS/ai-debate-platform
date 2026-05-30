@@ -8,10 +8,10 @@ Last verified on 2026-05-30:
 
 ```text
 uv run pytest -q
-416 passed
+419 passed
 
 uv run pytest --cov=src --cov-report=term-missing
-Total coverage: 91.74%
+Total coverage: 91.76%
 Required test coverage of 85.0% reached.
 
 uv run ruff check src tests

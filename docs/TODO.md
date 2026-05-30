@@ -53,8 +53,8 @@ This tracker reflects the completed submission scope for the current branch.
 - [x] Unit tests cover SDK clients, routing, gatekeeper behavior, IPC, debater, judge, orchestrator, skills, search, config, exporter, logging, GUI runner, and server safety
 - [x] Integration debate-flow test uses `MockAIClient`
 - [x] Submission-readiness tests verify the source line cap, env template, and GUI provider options
-- [x] Full suite passing: `416` tests
-- [x] Coverage target exceeded: `91.74%`
+- [x] Full suite passing: `419` tests
+- [x] Coverage target exceeded: `91.76%`
 - [x] Ruff lint checks passing
 
 ## Documentation

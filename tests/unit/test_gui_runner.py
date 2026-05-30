@@ -101,6 +101,24 @@ def test_build_debate_services_falls_back_for_invalid_rounds():
     assert model_info["judge"]["provider"] == "mock"
 
 
+@pytest.mark.asyncio
+async def test_gui_payload_rejects_blank_required_fields(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "setup.json").write_text("{}", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Fill in Topic, Debater A stance"):
+        await run_debate_from_payload({
+            "topic": " ",
+            "stance_a": "",
+            "stance_b": "Keep debating",
+            "provider_a": "mock",
+            "provider_b": "mock",
+            "judge_provider": "mock",
+            "rounds": 1,
+        })
+
+
 def test_build_debate_services_clamps_rounds():
     *_, rounds, _ = build_debate_services({
         "topic": "Clamp rounds",

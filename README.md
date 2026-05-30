@@ -5,8 +5,8 @@ A modular Python 3.12 platform where two AI debaters argue opposing stances, a j
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue?logo=python)
 ![uv](https://img.shields.io/badge/uv-package%20manager-purple)
 ![Ruff](https://img.shields.io/badge/Ruff-passing-green)
-![pytest](https://img.shields.io/badge/pytest-416%20passed-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-91.74%25-brightgreen)
+![pytest](https://img.shields.io/badge/pytest-419%20passed-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-91.76%25-brightgreen)
 
 ## Evaluation Evidence
 
@@ -15,8 +15,8 @@ Last verified on 2026-05-30:
 | Criterion | Evidence | Verification command |
 |---|---|---|
 | Python package managed with `uv` | `pyproject.toml` and `uv.lock` are committed | `uv sync` |
-| Full automated test suite | `416 passed` | `uv run pytest -q` |
-| Coverage above 85% | `91.74%` total coverage | `uv run pytest --cov=src --cov-report=term-missing` |
+| Full automated test suite | `419 passed` | `uv run pytest -q` |
+| Coverage above 85% | `91.76%` total coverage | `uv run pytest --cov=src --cov-report=term-missing` |
 | Ruff linting | `All checks passed!` | `uv run ruff check src tests` |
 | Source file line cap | Every production file in `src/` is <= 150 lines | `uv run pytest tests/unit/test_submission_readiness.py -q` |
 | No committed secrets | `.env.example` only contains placeholders; `.env` is ignored | `git check-ignore -v .env` |

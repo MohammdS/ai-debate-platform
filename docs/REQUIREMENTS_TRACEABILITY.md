@@ -17,7 +17,7 @@ This document maps the assignment and PRD requirements to implementation, tests,
 | REQ-011 | Rate limits from config | DONE | `config/rate_limits.json`, `src/shared/rate_config.py` | `uv run pytest tests/unit/test_rate_config.py tests/unit/test_gatekeeper.py -q` |
 | REQ-012 | Provider backpressure instead of crash-on-overflow | DONE | Per-provider locks, spacing, retries, and timeout handling in Gatekeeper | `uv run pytest tests/unit/test_gatekeeper.py -q` |
 | REQ-013 | TDD-style automated test coverage | DONE | Unit and integration tests under `tests/` | `uv run pytest -q` |
-| REQ-014 | Coverage >=85% | DONE | Coverage fail-under set to 85%; latest result 91.74% | `uv run pytest --cov=src --cov-report=term-missing` |
+| REQ-014 | Coverage >=85% | DONE | Coverage fail-under set to 85%; latest result 91.76% | `uv run pytest --cov=src --cov-report=term-missing` |
 | REQ-015 | Ruff linter with zero errors | DONE | Ruff configuration in `pyproject.toml` | `uv run ruff check src tests` |
 | REQ-016 | Runtime values loaded from config | DONE | Rounds, providers, models, limits, server, watchdog, pricing, and skills loaded from `config/` | `uv run pytest tests/unit/test_config.py tests/unit/test_gui_runner.py -q` |
 | REQ-017 | No secrets committed | DONE | `.env.example` uses placeholders; `.env` ignored; unsupported Anthropic key removed | `uv run pytest tests/unit/test_config.py tests/unit/test_submission_readiness.py -q` |
@@ -46,4 +46,4 @@ This document maps the assignment and PRD requirements to implementation, tests,
 | PARTIAL | 0 |
 | MISSING | 0 |
 
-Latest verified quality gate: `416 passed`, `91.74%` coverage, and `ruff` passing.
+Latest verified quality gate: `419 passed`, `91.76%` coverage, and `ruff` passing.

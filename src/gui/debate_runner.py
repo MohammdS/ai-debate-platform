@@ -2,7 +2,7 @@ import asyncio
 import logging
 import uuid
 
-from src.gui.service_builder import build_debate_services
+from src.gui.service_builder import build_debate_services, reject_blank_browser_fields
 from src.services.exporter import DebateExporter
 from src.services.orchestrator import DebateOrchestrator
 from src.services.watchdog_agent import WatchdogAgent
@@ -23,6 +23,7 @@ def _merge_stats(*gks) -> dict:
 
 async def run_debate_from_payload(payload: dict) -> dict:
     """Run a full debate via the IPC orchestrator (watchdog-monitored) and return the result."""
+    reject_blank_browser_fields(payload)
     session_id = uuid.uuid4().hex[:8]
     topic = payload.get("topic") or _cfg.default_topic
 
@@ -85,6 +86,7 @@ async def stream_debate_from_payload(payload: dict):
     onto event_queue as each argument is relayed. Yields NDJSON-compatible
     event dicts that the GUI reads via fetch + ReadableStream.
     """
+    reject_blank_browser_fields(payload)
     session_id = uuid.uuid4().hex[:8]
     topic, debater_a, debater_b, judge, rounds, model_info = build_debate_services(payload)
 

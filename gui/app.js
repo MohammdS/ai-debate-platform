@@ -1,4 +1,3 @@
-const title = document.querySelector("#debate-title");
 const verdict = document.querySelector("#verdict-text");
 const messages = document.querySelector("#messages");
 const count = document.querySelector("#message-count");
@@ -10,8 +9,29 @@ const judgeNote = document.querySelector("#judge-note");
 const themeToggle = document.querySelector("#theme-toggle");
 const transcriptTopic = document.querySelector("#transcript-topic");
 const verdictTopic = document.querySelector("#verdict-topic");
+const formStatus = document.querySelector("#form-status");
+const tokenDetails = document.querySelector("#token-details");
+const tokenStatsDl = document.querySelector("#token-stats");
 
 let currentModelInfo = {};
+const requiredFieldNames = [
+  "topic",
+  "stance_a",
+  "stance_b",
+  "rounds",
+  "provider_a",
+  "provider_b",
+  "judge_provider"
+];
+const fieldLabels = {
+  topic: "Topic",
+  stance_a: "Debater A stance",
+  stance_b: "Debater B stance",
+  rounds: "Rounds",
+  provider_a: "Debater A provider",
+  provider_b: "Debater B provider",
+  judge_provider: "Judge provider"
+};
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({
@@ -33,6 +53,69 @@ function cleanText(value) {
     .replaceAll("\u00e2\u20ac\ufffd", '"')
     .replaceAll("\u00e2\u2020\u2019", "->")
     .replaceAll("\u00c2", "");
+}
+
+function setFormStatus(message, tone = "error") {
+  formStatus.textContent = message;
+  formStatus.dataset.tone = tone;
+}
+
+function clearFieldErrors() {
+  form.querySelectorAll(".is-invalid").forEach((field) => {
+    field.classList.remove("is-invalid");
+    field.removeAttribute("aria-invalid");
+  });
+}
+
+function markInvalid(field) {
+  field.classList.add("is-invalid");
+  field.setAttribute("aria-invalid", "true");
+}
+
+function renderTokenStats(stats) {
+  if (!stats || typeof stats !== "object") {
+    tokenDetails.hidden = true;
+    tokenStatsDl.innerHTML = "";
+    return;
+  }
+  const rows = [
+    ["Tokens in", (stats.total_tokens_in ?? 0).toLocaleString()],
+    ["Tokens out", (stats.total_tokens_out ?? 0).toLocaleString()],
+    ["Est. cost", stats.estimated_cost_usd != null
+      ? "$" + Number(stats.estimated_cost_usd).toFixed(6)
+      : "$0.000000"],
+  ];
+  tokenStatsDl.innerHTML = rows
+    .map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd>`)
+    .join("");
+  tokenDetails.hidden = false;
+}
+
+function validatePayload(payload) {
+  clearFieldErrors();
+  const missing = [];
+  requiredFieldNames.forEach((name) => {
+    const field = form.elements[name];
+    const value = String(payload[name] || "").trim();
+    payload[name] = value;
+    if (!value) {
+      missing.push(fieldLabels[name]);
+      markInvalid(field);
+    }
+  });
+
+  const roundsField = form.elements.rounds;
+  const rounds = Number(payload.rounds);
+  if (!missing.includes(fieldLabels.rounds) && (!Number.isInteger(rounds) || rounds < 1 || rounds > 10)) {
+    markInvalid(roundsField);
+    return { valid: false, message: "Rounds must be a whole number from 1 to 10." };
+  }
+
+  if (missing.length > 0) {
+    return { valid: false, message: `Fill in ${missing.join(", ")} before starting.` };
+  }
+
+  return { valid: true, message: "" };
 }
 
 function labelFor(name) {
@@ -73,7 +156,6 @@ function render(data) {
   const history = data.history || [];
   const topic = cleanText(data.topic);
   renderModelSummary(data.model_info || {});
-  title.textContent = "AI Debate Platform";
   transcriptTopic.textContent = topic ? `Topic: ${topic}` : "Topic will appear here after a debate starts.";
   verdictTopic.textContent = topic ? `Topic: ${topic}` : "Topic will appear here after a debate starts.";
   verdict.textContent = cleanText(data.verdict) || "Run a debate to generate the judge's verdict.";
@@ -102,7 +184,6 @@ function render(data) {
 function resetLive(topicText, modelInfo) {
   const topic = cleanText(topicText);
   renderModelSummary(modelInfo || {});
-  title.textContent = "AI Debate Platform";
   transcriptTopic.textContent = topic ? `Topic: ${topic}` : "Topic will appear here after a debate starts.";
   verdictTopic.textContent = topic ? `Topic: ${topic}` : "Topic will appear here after a debate starts.";
   verdict.textContent = "Waiting for the debate to finish before the judge scores it.";
@@ -169,17 +250,37 @@ function renderEmptyState() {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const payload = Object.fromEntries(new FormData(form).entries());
+  const validation = validatePayload(payload);
+  if (!validation.valid) {
+    setFormStatus(validation.message, "error");
+    form.querySelector(".is-invalid")?.focus();
+    return;
+  }
+
   button.disabled = true;
   button.textContent = "Debating...";
-  const payload = Object.fromEntries(new FormData(form).entries());
+  form.setAttribute("aria-busy", "true");
+  setFormStatus("Debate running...", "info");
 
   try {
     await runLiveDebate(payload);
+    setFormStatus("Debate complete.", "success");
   } catch (error) {
-    verdict.textContent = error.message;
+    const message = cleanText(error.message || "Debate failed.");
+    setFormStatus(message, "error");
+    verdict.textContent = message;
   } finally {
     button.disabled = false;
     button.textContent = "Run Debate";
+    form.removeAttribute("aria-busy");
+  }
+});
+
+form.addEventListener("input", () => {
+  if (formStatus.textContent) {
+    clearFieldErrors();
+    formStatus.textContent = "";
   }
 });
 

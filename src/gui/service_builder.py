@@ -7,6 +7,15 @@ from src.services.judge import Judge
 from src.shared.config import ConfigManager
 
 _cfg = ConfigManager()
+_REQUIRED_BROWSER_FIELDS = {
+    "topic": "Topic",
+    "stance_a": "Debater A stance",
+    "stance_b": "Debater B stance",
+    "rounds": "Rounds",
+    "provider_a": "Debater A provider",
+    "provider_b": "Debater B provider",
+    "judge_provider": "Judge provider",
+}
 
 
 def _model_label(provider: str, model: str) -> str:
@@ -42,6 +51,16 @@ def _rounds_from_payload(payload: dict) -> int:
     except (TypeError, ValueError):
         rounds = _cfg.total_rounds
     return max(_cfg.min_rounds, min(_cfg.max_rounds, rounds))
+
+
+def reject_blank_browser_fields(payload: dict) -> None:
+    """Reject fields the browser submitted but left empty."""
+    missing = [
+        label for name, label in _REQUIRED_BROWSER_FIELDS.items()
+        if name in payload and not str(payload.get(name) or "").strip()
+    ]
+    if missing:
+        raise ValueError(f"Fill in {', '.join(missing)} before starting.")
 
 
 def build_debate_services(payload: dict):
